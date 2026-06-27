@@ -1,0 +1,284 @@
+import { useRef, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import { problemOf } from '../api/problem';
+import { AVATAR_CONTENT_TYPES, AVATAR_MAX_BYTES, type LinkType, type ProfileResponse } from '../api/profile';
+import { useMyProfile, useProfileMutations } from '../features/profile/useMyProfile';
+
+/** Display label per type; GENERIC is user-provided so it has no preset. */
+const TYPE_LABELS: Record<LinkType, string> = {
+  GENERIC: 'Custom link',
+  WHATSAPP: 'WhatsApp',
+  TELEGRAM: 'Telegram',
+  VIBER: 'Viber',
+  INSTAGRAM: 'Instagram',
+  TWITTER: 'X (Twitter)',
+  LINKEDIN: 'LinkedIn',
+  EMAIL: 'Email',
+};
+
+const LINK_TYPES = Object.keys(TYPE_LABELS) as LinkType[];
+
+/** What to type into the URL/value field, per type. */
+const URL_PLACEHOLDER: Record<LinkType, string> = {
+  GENERIC: 'https://…',
+  WHATSAPP: '+15551234567 or https://wa.me/…',
+  TELEGRAM: 'https://t.me/yourname',
+  VIBER: 'https://viber.com/…',
+  INSTAGRAM: 'https://instagram.com/yourname',
+  TWITTER: 'https://x.com/yourname',
+  LINKEDIN: 'https://linkedin.com/in/yourname',
+  EMAIL: 'you@example.com',
+};
+
+/** Typed links derive their label from the platform; only GENERIC needs a custom one. */
+function labelFor(type: LinkType, custom: string): string {
+  return type === 'GENERIC' ? custom.trim() : TYPE_LABELS[type];
+}
+
+export function MyProfilePage() {
+  const { data: profile, isLoading, isError } = useMyProfile();
+
+  if (isLoading) {
+    return <div className="max-w-md mx-auto mt-20 p-6 text-slate-600">Loading your card…</div>;
+  }
+  if (isError || !profile) {
+    return <div className="max-w-md mx-auto mt-20 p-6 text-sm text-red-600">Couldn't load your card.</div>;
+  }
+  // Mount the editor only once loaded, so its state seeds from the profile without an effect.
+  return <CardEditor profile={profile} />;
+}
+
+function CardEditor({ profile }: { profile: ProfileResponse }) {
+  const { updateProfile, createLink, deleteLink, reorderLinks, uploadAvatar, removeAvatar } = useProfileMutations();
+
+  const [displayName, setDisplayName] = useState(profile.display_name ?? '');
+  const [bio, setBio] = useState(profile.bio ?? '');
+  const [label, setLabel] = useState('');
+  const [url, setUrl] = useState('');
+  const [type, setType] = useState<LinkType>('GENERIC');
+  const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const links = [...profile.links].sort((a, b) => a.position - b.position);
+
+  const onPickAvatar = (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    if (!AVATAR_CONTENT_TYPES.includes(file.type)) {
+      setError('Avatar must be a PNG, JPEG, or WebP image.');
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setError('Avatar must be 2 MB or smaller.');
+      return;
+    }
+    uploadAvatar.mutate(file, {
+      onError: (e) => setError(problemOf(e)?.detail ?? 'Could not upload the avatar.'),
+    });
+  };
+
+  const saveProfile = () => {
+    setError(null);
+    updateProfile.mutate(
+      { display_name: displayName, bio },
+      { onError: (e) => setError(problemOf(e)?.detail ?? 'Could not save your profile.') },
+    );
+  };
+
+  const addLink = () => {
+    setError(null);
+    createLink.mutate(
+      { label: labelFor(type, label), url, type },
+      {
+        onSuccess: () => {
+          setLabel('');
+          setUrl('');
+          setType('GENERIC');
+        },
+        onError: (e) => {
+          const p = problemOf(e);
+          setError(p?.errors?.url ?? p?.detail ?? 'Could not add the link.');
+        },
+      },
+    );
+  };
+
+  const isGeneric = type === 'GENERIC';
+  const canAdd = Boolean(url) && (!isGeneric || Boolean(label));
+
+  const move = (index: number, dir: -1 | 1) => {
+    const next = index + dir;
+    if (next < 0 || next >= links.length) return;
+    const ids = links.map((l) => l.id);
+    [ids[index], ids[next]] = [ids[next], ids[index]];
+    reorderLinks.mutate(ids);
+  };
+
+  return (
+    <div className="max-w-md mx-auto mt-16 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-slate-900">Your card</h1>
+        <div className="flex gap-3 text-sm">
+          <RouterLink to={`/@${profile.username}`} className="text-indigo-600 hover:underline">
+            View public
+          </RouterLink>
+          <RouterLink to="/app" className="text-slate-600 hover:underline">
+            Account
+          </RouterLink>
+        </div>
+      </div>
+
+      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+
+      <section className="flex items-center gap-4 mb-8">
+        {profile.avatar_url ? (
+          <img
+            src={profile.avatar_url}
+            alt="Your avatar"
+            className="h-20 w-20 rounded-full object-cover border border-slate-200"
+          />
+        ) : (
+          <div className="h-20 w-20 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-2xl text-slate-400">
+            {(profile.display_name ?? profile.username).charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={AVATAR_CONTENT_TYPES.join(',')}
+            className="hidden"
+            onChange={(e) => {
+              onPickAvatar(e.target.files?.[0]);
+              e.target.value = ''; // allow re-selecting the same file
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadAvatar.isPending}
+            className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
+          >
+            {uploadAvatar.isPending ? 'Uploading…' : profile.avatar_url ? 'Change photo' : 'Upload photo'}
+          </button>
+          {profile.avatar_url && (
+            <button
+              type="button"
+              onClick={() => removeAvatar.mutate()}
+              disabled={removeAvatar.isPending}
+              className="ml-2 py-1.5 px-3 text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+            >
+              Remove
+            </button>
+          )}
+          <p className="text-xs text-slate-400">PNG, JPEG or WebP, up to 2 MB.</p>
+        </div>
+      </section>
+
+      <section className="space-y-3 mb-8">
+        <label className="block text-sm font-medium text-slate-700">
+          Display name
+          <input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md"
+          />
+        </label>
+        <label className="block text-sm font-medium text-slate-700">
+          Bio
+          <textarea
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            rows={3}
+            className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md"
+          />
+        </label>
+        <button
+          onClick={saveProfile}
+          disabled={updateProfile.isPending}
+          className="py-2 px-4 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {updateProfile.isPending ? 'Saving…' : 'Save profile'}
+        </button>
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold text-slate-900 mb-3">Links</h2>
+        <ul className="space-y-2 mb-6">
+          {links.length === 0 && <li className="text-sm text-slate-400">No links yet.</li>}
+          {links.map((link, i) => (
+            <li key={link.id} className="flex items-center gap-2 border border-slate-200 rounded-md px-3 py-2">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-900 truncate">{link.label}</p>
+                <p className="text-xs text-slate-500 truncate">{link.url}</p>
+              </div>
+              <button
+                aria-label="Move up"
+                onClick={() => move(i, -1)}
+                disabled={i === 0 || reorderLinks.isPending}
+                className="px-2 text-slate-500 hover:text-slate-900 disabled:opacity-30"
+              >
+                ↑
+              </button>
+              <button
+                aria-label="Move down"
+                onClick={() => move(i, 1)}
+                disabled={i === links.length - 1 || reorderLinks.isPending}
+                className="px-2 text-slate-500 hover:text-slate-900 disabled:opacity-30"
+              >
+                ↓
+              </button>
+              <button
+                aria-label={`Delete ${link.label}`}
+                onClick={() => deleteLink.mutate(link.id)}
+                disabled={deleteLink.isPending}
+                className="px-2 text-red-600 hover:text-red-800 disabled:opacity-30"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="space-y-2 border-t border-slate-200 pt-4">
+          <h3 className="text-sm font-medium text-slate-700">Add a link</h3>
+          <select
+            aria-label="Link type"
+            value={type}
+            onChange={(e) => setType(e.target.value as LinkType)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-md"
+          >
+            {LINK_TYPES.map((t) => (
+              <option key={t} value={t}>
+                {TYPE_LABELS[t]}
+              </option>
+            ))}
+          </select>
+          {isGeneric && (
+            <input
+              placeholder="Label (e.g. My blog)"
+              aria-label="Label"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md"
+            />
+          )}
+          <input
+            placeholder={URL_PLACEHOLDER[type]}
+            aria-label={isGeneric ? 'URL' : `${TYPE_LABELS[type]} link`}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-md"
+          />
+          <button
+            onClick={addLink}
+            disabled={createLink.isPending || !canAdd}
+            className="py-2 px-4 bg-slate-800 text-white font-medium rounded-md hover:bg-slate-900 disabled:opacity-50"
+          >
+            {createLink.isPending ? 'Adding…' : 'Add link'}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+}

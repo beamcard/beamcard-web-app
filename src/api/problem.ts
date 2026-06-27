@@ -22,6 +22,8 @@ export type ProblemCode =
   | 'user_not_found'
   // profile-service
   | 'profile_not_found'
+  | 'link_not_found'
+  | 'invalid_avatar'
   // keep literal autocomplete while still accepting codes from newer services
   | (string & {});
 
