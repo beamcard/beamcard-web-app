@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
 import { useCurrentAccount } from '../features/auth/useCurrentAccount';
@@ -65,9 +65,12 @@ export function AccountPage() {
         <dd className="col-span-2 text-slate-900">{memberSince}</dd>
       </dl>
 
-      <p className="mt-8 text-xs text-slate-400">
-        Your Beamcard profile and public link land in a later milestone.
-      </p>
+      <RouterLink
+        to="/app/profile"
+        className="mt-8 inline-block py-2 px-4 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition"
+      >
+        Edit your card
+      </RouterLink>
     </div>
   );
 }
