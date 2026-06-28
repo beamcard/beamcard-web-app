@@ -52,8 +52,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     throw new ApiError(response.status, response.statusText, body);
   }
 
-  // Some endpoints will be 204 in the future — guard for that.
-  if (response.status === 204) {
+  // No-body success responses (204 No Content, 202 Accepted) — nothing to parse.
+  if (response.status === 204 || response.status === 202) {
     return undefined as T;
   }
   return response.json() as Promise<T>;

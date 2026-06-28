@@ -60,3 +60,23 @@ export function login(req: LoginRequest): Promise<AuthResponse> {
 export function getCurrentAccount(): Promise<AccountResponse> {
   return apiFetch<AccountResponse>('/auth/me');
 }
+
+/**
+ * POST /auth/password/forgot — request a reset link. Always 202 (no body),
+ * even for an unknown email, so it can't be used to probe for registered
+ * addresses.
+ */
+export function requestPasswordReset(email: string): Promise<void> {
+  return apiFetch<void>('/auth/password/forgot', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+/** POST /auth/password/reset — set a new password using the emailed token. 204 on success. */
+export function resetPassword(req: { token: string; password: string }): Promise<void> {
+  return apiFetch<void>('/auth/password/reset', {
+    method: 'POST',
+    body: JSON.stringify(req),
+  });
+}
