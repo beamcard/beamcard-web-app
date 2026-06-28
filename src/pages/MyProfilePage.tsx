@@ -1,8 +1,17 @@
 import { useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { problemOf } from '../api/problem';
-import { AVATAR_CONTENT_TYPES, AVATAR_MAX_BYTES, type LinkType, type ProfileResponse } from '../api/profile';
+import {
+  AVATAR_CONTENT_TYPES,
+  AVATAR_MAX_BYTES,
+  getMyProfileQr,
+  publicCardUrl,
+  type LinkType,
+  type ProfileResponse,
+} from '../api/profile';
 import { useMyProfile, useProfileMutations } from '../features/profile/useMyProfile';
+import { ShareDialog } from '../features/profile/ShareDialog';
 
 /** Display label per type; GENERIC is user-provided so it has no preset. */
 const TYPE_LABELS: Record<LinkType, string> = {
@@ -57,7 +66,12 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const [url, setUrl] = useState('');
   const [type, setType] = useState<LinkType>('GENERIC');
   const [error, setError] = useState<string | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const cardUrl = publicCardUrl(profile.username);
+  // Only fetch the QR when the share dialog is opened.
+  const qr = useQuery({ queryKey: ['profile', 'qr'], queryFn: getMyProfileQr, enabled: shareOpen });
 
   const links = [...profile.links].sort((a, b) => a.position - b.position);
 
@@ -174,6 +188,30 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           <p className="text-xs text-slate-400">PNG, JPEG or WebP, up to 2 MB.</p>
         </div>
       </section>
+
+      <section className="mb-8 flex items-center justify-between gap-3 border border-slate-200 rounded-md p-4">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-700">Share your card</p>
+          <p className="text-xs text-slate-500 truncate">{cardUrl}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShareOpen(true)}
+          className="shrink-0 py-2 px-3 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+        >
+          Share &amp; print
+        </button>
+      </section>
+
+      {shareOpen && (
+        <ShareDialog
+          username={profile.username}
+          url={cardUrl}
+          qrSvg={qr.data}
+          isLoading={qr.isLoading}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
 
       <section className="space-y-3 mb-8">
         <label className="block text-sm font-medium text-slate-700">

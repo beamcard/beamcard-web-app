@@ -1,4 +1,4 @@
-import { apiFetch } from './client';
+import { apiFetch, apiFetchText } from './client';
 
 /**
  * Wire shapes for profile-service. snake_case to match its Jackson config
@@ -160,4 +160,16 @@ export async function uploadAvatar(file: File): Promise<ProfileResponse> {
 /** DELETE /me/profile/avatar — clear the avatar. */
 export function removeAvatar(): Promise<ProfileResponse> {
   return apiFetch<ProfileResponse>('/me/profile/avatar', { method: 'DELETE' });
+}
+
+/* ------------------------------- share -------------------------------- */
+
+/** The public, shareable URL for a card (same origin as the SPA). */
+export function publicCardUrl(username: string): string {
+  return `${window.location.origin}/@${username}`;
+}
+
+/** GET /me/profile/qr — the caller's QR code as an SVG string (authenticated). */
+export function getMyProfileQr(): Promise<string> {
+  return apiFetchText('/me/profile/qr');
 }

@@ -25,6 +25,8 @@ vi.mock('../api/profile', () => ({
   reorderLinks: vi.fn(),
   uploadAvatar: vi.fn(),
   removeAvatar: vi.fn(),
+  getMyProfileQr: vi.fn(() => Promise.resolve('<svg></svg>')),
+  publicCardUrl: vi.fn((u: string) => `http://localhost/@${u}`),
   AVATAR_CONTENT_TYPES: ['image/png', 'image/jpeg', 'image/webp'],
   AVATAR_MAX_BYTES: 2 * 1024 * 1024,
 }));

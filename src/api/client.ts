@@ -58,3 +58,19 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   return response.json() as Promise<T>;
 }
+
+/** Like apiFetch but returns the raw text body (e.g. an SVG), with the same auth + 401 handling. */
+export async function apiFetchText(path: string, init: RequestInit = {}): Promise<string> {
+  const token = useAuthStore.getState().token;
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers },
+  });
+  if (!response.ok) {
+    if (response.status === 401) {
+      useAuthStore.getState().clear();
+    }
+    throw new ApiError(response.status, response.statusText);
+  }
+  return response.text();
+}
