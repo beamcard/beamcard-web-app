@@ -33,6 +33,7 @@ vi.mock('../api/profile', () => ({
 
 const getMyProfileMock = vi.mocked(getMyProfile);
 const createLinkMock = vi.mocked(createLink);
+const updateLinkMock = vi.mocked(updateLink);
 const uploadAvatarMock = vi.mocked(uploadAvatar);
 
 const PROFILE: ProfileResponse = {
@@ -126,6 +127,31 @@ describe('MyProfilePage', () => {
       expect(createLinkMock).toHaveBeenCalledWith(
         { label: 'Instagram', url: 'https://instagram.com/alice', type: 'INSTAGRAM' },
         expect.anything(),
+      ),
+    );
+  });
+
+  it('edits an existing link in place', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    updateLinkMock.mockResolvedValue({ ...PROFILE.links[0], label: 'Home', url: 'https://alice.dev' });
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    // Open the inline editor for the GENERIC link, change both fields, save.
+    await userEvent.click(screen.getByRole('button', { name: /edit website/i }));
+    const labelInput = screen.getByLabelText('Edit label');
+    const urlInput = screen.getByLabelText('Edit URL');
+    await userEvent.clear(labelInput);
+    await userEvent.type(labelInput, 'Home');
+    await userEvent.clear(urlInput);
+    await userEvent.type(urlInput, 'https://alice.dev');
+    await userEvent.click(screen.getByRole('button', { name: /^save$/i }));
+
+    await waitFor(() =>
+      expect(updateLinkMock).toHaveBeenCalledWith(
+        'l1',
+        { label: 'Home', url: 'https://alice.dev' },
+        // mutationFn maps to updateLink(id, body); no trailing context arg here.
       ),
     );
   });

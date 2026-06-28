@@ -7,6 +7,7 @@ import {
   AVATAR_MAX_BYTES,
   getMyProfileQr,
   publicCardUrl,
+  type LinkResponse,
   type LinkType,
   type ProfileResponse,
 } from '../api/profile';
@@ -58,13 +59,17 @@ export function MyProfilePage() {
 }
 
 function CardEditor({ profile }: { profile: ProfileResponse }) {
-  const { updateProfile, createLink, deleteLink, reorderLinks, uploadAvatar, removeAvatar } = useProfileMutations();
+  const { updateProfile, createLink, updateLink, deleteLink, reorderLinks, uploadAvatar, removeAvatar } =
+    useProfileMutations();
 
   const [displayName, setDisplayName] = useState(profile.display_name ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [type, setType] = useState<LinkType>('GENERIC');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
+  const [editUrl, setEditUrl] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,6 +117,30 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         onError: (e) => {
           const p = problemOf(e);
           setError(p?.errors?.url ?? p?.detail ?? 'Could not add the link.');
+        },
+      },
+    );
+  };
+
+  const startEdit = (link: LinkResponse) => {
+    setError(null);
+    setEditingId(link.id);
+    setEditLabel(link.label);
+    setEditUrl(link.url);
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  // Typed links keep their derived label; only GENERIC carries a user-editable one.
+  const saveEdit = (link: LinkResponse) => {
+    setError(null);
+    updateLink.mutate(
+      { id: link.id, label: link.type === 'GENERIC' ? editLabel.trim() : undefined, url: editUrl },
+      {
+        onSuccess: () => setEditingId(null),
+        onError: (e) => {
+          const p = problemOf(e);
+          setError(p?.errors?.url ?? p?.detail ?? 'Could not save the link.');
         },
       },
     );
@@ -244,38 +273,79 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         <h2 className="text-lg font-semibold text-slate-900 mb-3">Links</h2>
         <ul className="space-y-2 mb-6">
           {links.length === 0 && <li className="text-sm text-slate-400">No links yet.</li>}
-          {links.map((link, i) => (
-            <li key={link.id} className="flex items-center gap-2 border border-slate-200 rounded-md px-3 py-2">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-900 truncate">{link.label}</p>
-                <p className="text-xs text-slate-500 truncate">{link.url}</p>
-              </div>
-              <button
-                aria-label="Move up"
-                onClick={() => move(i, -1)}
-                disabled={i === 0 || reorderLinks.isPending}
-                className="px-2 text-slate-500 hover:text-slate-900 disabled:opacity-30"
-              >
-                ↑
-              </button>
-              <button
-                aria-label="Move down"
-                onClick={() => move(i, 1)}
-                disabled={i === links.length - 1 || reorderLinks.isPending}
-                className="px-2 text-slate-500 hover:text-slate-900 disabled:opacity-30"
-              >
-                ↓
-              </button>
-              <button
-                aria-label={`Delete ${link.label}`}
-                onClick={() => deleteLink.mutate(link.id)}
-                disabled={deleteLink.isPending}
-                className="px-2 text-red-600 hover:text-red-800 disabled:opacity-30"
-              >
-                ✕
-              </button>
-            </li>
-          ))}
+          {links.map((link, i) =>
+            editingId === link.id ? (
+              <li key={link.id} className="border border-indigo-300 rounded-md px-3 py-2 space-y-2">
+                {link.type === 'GENERIC' && (
+                  <input
+                    aria-label="Edit label"
+                    value={editLabel}
+                    onChange={(e) => setEditLabel(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                  />
+                )}
+                <input
+                  aria-label="Edit URL"
+                  value={editUrl}
+                  onChange={(e) => setEditUrl(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => saveEdit(link)}
+                    disabled={updateLink.isPending || !editUrl || (link.type === 'GENERIC' && !editLabel.trim())}
+                    className="py-1.5 px-3 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {updateLink.isPending ? 'Saving…' : 'Save'}
+                  </button>
+                  <button
+                    onClick={cancelEdit}
+                    className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </li>
+            ) : (
+              <li key={link.id} className="flex items-center gap-2 border border-slate-200 rounded-md px-3 py-2">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-slate-900 truncate">{link.label}</p>
+                  <p className="text-xs text-slate-500 truncate">{link.url}</p>
+                </div>
+                <button
+                  aria-label="Move up"
+                  onClick={() => move(i, -1)}
+                  disabled={i === 0 || reorderLinks.isPending}
+                  className="px-2 text-slate-500 hover:text-slate-900 disabled:opacity-30"
+                >
+                  ↑
+                </button>
+                <button
+                  aria-label="Move down"
+                  onClick={() => move(i, 1)}
+                  disabled={i === links.length - 1 || reorderLinks.isPending}
+                  className="px-2 text-slate-500 hover:text-slate-900 disabled:opacity-30"
+                >
+                  ↓
+                </button>
+                <button
+                  aria-label={`Edit ${link.label}`}
+                  onClick={() => startEdit(link)}
+                  className="px-2 text-slate-500 hover:text-slate-900"
+                >
+                  ✎
+                </button>
+                <button
+                  aria-label={`Delete ${link.label}`}
+                  onClick={() => deleteLink.mutate(link.id)}
+                  disabled={deleteLink.isPending}
+                  className="px-2 text-red-600 hover:text-red-800 disabled:opacity-30"
+                >
+                  ✕
+                </button>
+              </li>
+            ),
+          )}
         </ul>
 
         <div className="space-y-2 border-t border-slate-200 pt-4">

@@ -37,3 +37,20 @@ export const loginSchema = z.object({
 });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
+
+/** "Forgot password" — just a well-formed email; the answer is always generic. */
+export const forgotPasswordSchema = z.object({
+  email: z.string().min(1, 'Email is required').email('Enter a valid email').max(254),
+});
+
+export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
+/** "Set new password" — mirrors the signup password rule (12–128 chars). */
+export const resetPasswordSchema = z.object({
+  password: z
+    .string()
+    .min(12, 'Password must be at least 12 characters')
+    .max(128, 'Password must be 128 characters or fewer'),
+});
+
+export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
