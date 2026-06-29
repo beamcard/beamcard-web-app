@@ -25,11 +25,19 @@ export interface LinkResponse {
   position: number;
 }
 
-/** Optional working location; the whole object is omitted when none is set. */
+/** The profile's primary location (country + city); omitted when none is set. */
 export interface Location {
   country?: string;
   city?: string;
+}
+
+/** One workplace: a role at an organization + its street address (within the primary city). */
+export interface Affiliation {
+  role?: string;
+  organization?: string;
   address?: string;
+  /** Optional free-text "how to find it" note. */
+  description?: string;
 }
 
 export interface ProfileResponse {
@@ -38,6 +46,7 @@ export interface ProfileResponse {
   display_name?: string;
   bio?: string;
   location?: Location;
+  affiliations?: Affiliation[];
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -49,6 +58,7 @@ export interface UpdateProfileRequest {
   display_name?: string;
   bio?: string;
   location?: Location;
+  affiliations?: Affiliation[];
 }
 
 /**

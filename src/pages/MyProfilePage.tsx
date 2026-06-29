@@ -7,6 +7,7 @@ import {
   AVATAR_MAX_BYTES,
   getMyProfileQr,
   publicCardUrl,
+  type Affiliation,
   type LinkResponse,
   type LinkType,
   type ProfileResponse,
@@ -35,6 +36,37 @@ function labelFor(type: LinkType, custom: string): string {
   return type === 'GENERIC' ? custom.trim() : TYPE_LABELS[type];
 }
 
+/** Flat editor row for one workplace — street address only (city/country are the profile's primary). */
+interface WorkplaceRow {
+  role: string;
+  organization: string;
+  address: string;
+  description: string;
+}
+
+const EMPTY_ROW: WorkplaceRow = { role: '', organization: '', address: '', description: '' };
+
+/** API affiliations → editor rows (always at least one row so the form isn't empty). */
+function toRows(affiliations: Affiliation[] | undefined): WorkplaceRow[] {
+  if (!affiliations || affiliations.length === 0) return [{ ...EMPTY_ROW }];
+  return affiliations.map((a) => ({
+    role: a.role ?? '',
+    organization: a.organization ?? '',
+    address: a.address ?? '',
+    description: a.description ?? '',
+  }));
+}
+
+/** Editor rows → API affiliations (the backend drops fully-blank rows). */
+function toAffiliations(rows: WorkplaceRow[]): Affiliation[] {
+  return rows.map((r) => ({
+    role: r.role,
+    organization: r.organization,
+    address: r.address,
+    description: r.description,
+  }));
+}
+
 export function MyProfilePage() {
   const { data: profile, isLoading, isError } = useMyProfile();
 
@@ -56,7 +88,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const [bio, setBio] = useState(profile.bio ?? '');
   const [country, setCountry] = useState(profile.location?.country ?? '');
   const [city, setCity] = useState(profile.location?.city ?? '');
-  const [address, setAddress] = useState(profile.location?.address ?? '');
+  const [workplaces, setWorkplaces] = useState<WorkplaceRow[]>(() => toRows(profile.affiliations));
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [type, setType] = useState<LinkType>('GENERIC');
@@ -92,10 +124,18 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const saveProfile = () => {
     setError(null);
     updateProfile.mutate(
-      { display_name: displayName, bio, location: { country, city, address } },
+      { display_name: displayName, bio, location: { country, city }, affiliations: toAffiliations(workplaces) },
       { onError: (e) => setError(problemOf(e)?.detail ?? 'Could not save your profile.') },
     );
   };
+
+  const updateWorkplace = (index: number, field: keyof WorkplaceRow, value: string) =>
+    setWorkplaces((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+
+  const addWorkplace = () => setWorkplaces((rows) => [...rows, { ...EMPTY_ROW }]);
+
+  const removeWorkplace = (index: number) =>
+    setWorkplaces((rows) => (rows.length === 1 ? [{ ...EMPTY_ROW }] : rows.filter((_, i) => i !== index)));
 
   const addLink = () => {
     setError(null);
@@ -151,20 +191,25 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-16 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">Your card</h1>
-        <div className="flex gap-3 text-sm">
-          <RouterLink to={`/@${profile.username}`} className="text-indigo-600 hover:underline">
-            View public
-          </RouterLink>
-          <RouterLink to="/app" className="text-slate-600 hover:underline">
-            Account
-          </RouterLink>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-10">
+      <div className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70 sm:p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Your card</h1>
+          <div className="flex gap-3 text-sm">
+            <RouterLink to={`/@${profile.username}`} className="text-indigo-600 hover:underline">
+              View public
+            </RouterLink>
+            <RouterLink to="/app" className="text-slate-600 hover:underline">
+              Account
+            </RouterLink>
+          </div>
         </div>
-      </div>
 
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+        {error && (
+          <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">
+            {error}
+          </p>
+        )}
 
       <section className="flex items-center gap-4 mb-8">
         {profile.avatar_url ? (
@@ -255,7 +300,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         </label>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-slate-700">Location (optional)</legend>
+          <legend className="text-sm font-medium text-slate-700">Primary location (optional)</legend>
           <div className="flex gap-2">
             <input
               aria-label="Country"
@@ -278,13 +323,63 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
               className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
             />
           </div>
-          <input
-            aria-label="Address"
-            placeholder="Address (street, number)"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-md"
-          />
+        </fieldset>
+
+        <fieldset className="space-y-3">
+          <legend className="text-sm font-medium text-slate-700">Workplaces (optional)</legend>
+          <p className="text-xs text-slate-400">Each workplace's street address — within your primary city above.</p>
+          {workplaces.map((w, i) => (
+            <div key={i} className="space-y-2 border border-slate-200 rounded-md p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-slate-500">Workplace {i + 1}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove workplace ${i + 1}`}
+                  onClick={() => removeWorkplace(i)}
+                  className="text-sm text-red-600 hover:text-red-800"
+                >
+                  Remove
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  aria-label={`Role ${i + 1}`}
+                  placeholder="Role (e.g. Trainer)"
+                  value={w.role}
+                  onChange={(e) => updateWorkplace(i, 'role', e.target.value)}
+                  className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
+                />
+                <input
+                  aria-label={`Organization ${i + 1}`}
+                  placeholder="Organization (e.g. FitGym)"
+                  value={w.organization}
+                  onChange={(e) => updateWorkplace(i, 'organization', e.target.value)}
+                  className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
+                />
+              </div>
+              <input
+                aria-label={`Address ${i + 1}`}
+                placeholder="Address (street, number)"
+                value={w.address}
+                onChange={(e) => updateWorkplace(i, 'address', e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
+              />
+              <input
+                aria-label={`Description ${i + 1}`}
+                placeholder="How to find it (e.g. inside the mall, 2nd floor)"
+                value={w.description}
+                onChange={(e) => updateWorkplace(i, 'description', e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-md"
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addWorkplace}
+            className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
+          >
+            + Add workplace
+          </button>
         </fieldset>
 
         <button
@@ -443,6 +538,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           </button>
         </div>
       </section>
+      </div>
     </div>
   );
 }

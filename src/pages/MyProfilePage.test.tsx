@@ -131,7 +131,7 @@ describe('MyProfilePage', () => {
     );
   });
 
-  it('saves the optional location fields', async () => {
+  it('saves the primary location and a workplace (street only)', async () => {
     getMyProfileMock.mockResolvedValue(PROFILE);
     vi.mocked(updateMyProfile).mockResolvedValue(PROFILE);
     renderPage();
@@ -139,15 +139,35 @@ describe('MyProfilePage', () => {
 
     await userEvent.type(screen.getByLabelText('Country'), 'Austria');
     await userEvent.type(screen.getByLabelText('City'), 'Vienna');
-    await userEvent.type(screen.getByLabelText('Address'), 'Stephansplatz 1');
+    await userEvent.type(screen.getByLabelText('Role 1'), 'Trainer');
+    await userEvent.type(screen.getByLabelText('Organization 1'), 'FitGym');
+    await userEvent.type(screen.getByLabelText('Address 1'), 'Stephansplatz 1');
+    await userEvent.type(screen.getByLabelText('Description 1'), 'Entrance B');
     await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
 
     await waitFor(() =>
       expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
-        expect.objectContaining({ location: { country: 'Austria', city: 'Vienna', address: 'Stephansplatz 1' } }),
+        expect.objectContaining({
+          location: { country: 'Austria', city: 'Vienna' },
+          affiliations: [
+            { role: 'Trainer', organization: 'FitGym', address: 'Stephansplatz 1', description: 'Entrance B' },
+          ],
+        }),
         expect.anything(),
       ),
     );
+  });
+
+  it('adds and removes workplace rows', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    expect(screen.getByLabelText('Role 1')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /add workplace/i }));
+    expect(screen.getByLabelText('Role 2')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /remove workplace 2/i }));
+    expect(screen.queryByLabelText('Role 2')).not.toBeInTheDocument();
   });
 
   it('offers a country datalist for type-to-filter', async () => {
