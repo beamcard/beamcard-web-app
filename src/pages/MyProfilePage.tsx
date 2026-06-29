@@ -13,6 +13,8 @@ import {
 } from '../api/profile';
 import { useMyProfile, useProfileMutations } from '../features/profile/useMyProfile';
 import { ShareDialog } from '../features/profile/ShareDialog';
+import { LINK_PREFIX, VALUE_PLACEHOLDER, composeUrl, hasPrefix, toHandle } from '../features/profile/linkComposer';
+import { COUNTRIES } from '../features/profile/countries';
 
 /** Display label per type; GENERIC is user-provided so it has no preset. */
 const TYPE_LABELS: Record<LinkType, string> = {
@@ -27,18 +29,6 @@ const TYPE_LABELS: Record<LinkType, string> = {
 };
 
 const LINK_TYPES = Object.keys(TYPE_LABELS) as LinkType[];
-
-/** What to type into the URL/value field, per type. */
-const URL_PLACEHOLDER: Record<LinkType, string> = {
-  GENERIC: 'https://…',
-  WHATSAPP: '+15551234567 or https://wa.me/…',
-  TELEGRAM: 'https://t.me/yourname',
-  VIBER: 'https://viber.com/…',
-  INSTAGRAM: 'https://instagram.com/yourname',
-  TWITTER: 'https://x.com/yourname',
-  LINKEDIN: 'https://linkedin.com/in/yourname',
-  EMAIL: 'you@example.com',
-};
 
 /** Typed links derive their label from the platform; only GENERIC needs a custom one. */
 function labelFor(type: LinkType, custom: string): string {
@@ -64,6 +54,9 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
 
   const [displayName, setDisplayName] = useState(profile.display_name ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
+  const [country, setCountry] = useState(profile.location?.country ?? '');
+  const [city, setCity] = useState(profile.location?.city ?? '');
+  const [address, setAddress] = useState(profile.location?.address ?? '');
   const [label, setLabel] = useState('');
   const [url, setUrl] = useState('');
   const [type, setType] = useState<LinkType>('GENERIC');
@@ -99,7 +92,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const saveProfile = () => {
     setError(null);
     updateProfile.mutate(
-      { display_name: displayName, bio },
+      { display_name: displayName, bio, location: { country, city, address } },
       { onError: (e) => setError(problemOf(e)?.detail ?? 'Could not save your profile.') },
     );
   };
@@ -107,7 +100,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const addLink = () => {
     setError(null);
     createLink.mutate(
-      { label: labelFor(type, label), url, type },
+      { label: labelFor(type, label), url: composeUrl(type, url), type },
       {
         onSuccess: () => {
           setLabel('');
@@ -126,7 +119,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
     setError(null);
     setEditingId(link.id);
     setEditLabel(link.label);
-    setEditUrl(link.url);
+    setEditUrl(toHandle(link.type, link.url));
   };
 
   const cancelEdit = () => setEditingId(null);
@@ -135,7 +128,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const saveEdit = (link: LinkResponse) => {
     setError(null);
     updateLink.mutate(
-      { id: link.id, label: link.type === 'GENERIC' ? editLabel.trim() : undefined, url: editUrl },
+      { id: link.id, label: link.type === 'GENERIC' ? editLabel.trim() : undefined, url: composeUrl(link.type, editUrl) },
       {
         onSuccess: () => setEditingId(null),
         onError: (e) => {
@@ -260,6 +253,40 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             className="mt-1 w-full px-3 py-2 border border-slate-300 rounded-md"
           />
         </label>
+
+        <fieldset className="space-y-2">
+          <legend className="text-sm font-medium text-slate-700">Location (optional)</legend>
+          <div className="flex gap-2">
+            <input
+              aria-label="Country"
+              placeholder="Country"
+              list="country-options"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
+            />
+            <datalist id="country-options">
+              {COUNTRIES.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+            <input
+              aria-label="City"
+              placeholder="City"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
+            />
+          </div>
+          <input
+            aria-label="Address"
+            placeholder="Address (street, number)"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            className="w-full px-3 py-2 border border-slate-300 rounded-md"
+          />
+        </fieldset>
+
         <button
           onClick={saveProfile}
           disabled={updateProfile.isPending}
@@ -284,12 +311,26 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                     className="w-full px-3 py-2 border border-slate-300 rounded-md"
                   />
                 )}
-                <input
-                  aria-label="Edit URL"
-                  value={editUrl}
-                  onChange={(e) => setEditUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md"
-                />
+                {hasPrefix(link.type) ? (
+                  <div className="flex items-stretch">
+                    <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-300 bg-slate-50 text-xs text-slate-500 whitespace-nowrap">
+                      {LINK_PREFIX[link.type]}
+                    </span>
+                    <input
+                      aria-label="Edit URL"
+                      value={editUrl}
+                      onChange={(e) => setEditUrl(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-r-md"
+                    />
+                  </div>
+                ) : (
+                  <input
+                    aria-label="Edit URL"
+                    value={editUrl}
+                    onChange={(e) => setEditUrl(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md"
+                  />
+                )}
                 <div className="flex gap-2">
                   <button
                     onClick={() => saveEdit(link)}
@@ -371,13 +412,28 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
               className="w-full px-3 py-2 border border-slate-300 rounded-md"
             />
           )}
-          <input
-            placeholder={URL_PLACEHOLDER[type]}
-            aria-label={isGeneric ? 'URL' : `${TYPE_LABELS[type]} link`}
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-md"
-          />
+          {hasPrefix(type) ? (
+            <div className="flex items-stretch">
+              <span className="inline-flex items-center px-3 rounded-l-md border border-r-0 border-slate-300 bg-slate-50 text-sm text-slate-500 whitespace-nowrap">
+                {LINK_PREFIX[type]}
+              </span>
+              <input
+                placeholder={VALUE_PLACEHOLDER[type]}
+                aria-label={`${TYPE_LABELS[type]} link`}
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-r-md"
+              />
+            </div>
+          ) : (
+            <input
+              placeholder={VALUE_PLACEHOLDER[type]}
+              aria-label={isGeneric ? 'URL' : `${TYPE_LABELS[type]} link`}
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-md"
+            />
+          )}
           <button
             onClick={addLink}
             disabled={createLink.isPending || !canAdd}

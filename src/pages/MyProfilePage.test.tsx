@@ -131,6 +131,61 @@ describe('MyProfilePage', () => {
     );
   });
 
+  it('saves the optional location fields', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    vi.mocked(updateMyProfile).mockResolvedValue(PROFILE);
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    await userEvent.type(screen.getByLabelText('Country'), 'Austria');
+    await userEvent.type(screen.getByLabelText('City'), 'Vienna');
+    await userEvent.type(screen.getByLabelText('Address'), 'Stephansplatz 1');
+    await userEvent.click(screen.getByRole('button', { name: /save profile/i }));
+
+    await waitFor(() =>
+      expect(vi.mocked(updateMyProfile)).toHaveBeenCalledWith(
+        expect.objectContaining({ location: { country: 'Austria', city: 'Vienna', address: 'Stephansplatz 1' } }),
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('offers a country datalist for type-to-filter', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    // The country input is backed by a <datalist> the browser filters as you type.
+    expect(screen.getByLabelText('Country')).toHaveAttribute('list', 'country-options');
+    const austria = document.querySelector('#country-options option[value="Austria"]');
+    expect(austria).toBeInTheDocument();
+  });
+
+  it('prepends the platform base URL when only a handle is typed', async () => {
+    getMyProfileMock.mockResolvedValue(PROFILE);
+    createLinkMock.mockResolvedValue({
+      id: 'l3',
+      label: 'Telegram',
+      url: 'https://t.me/yehor_br',
+      type: 'TELEGRAM',
+      position: 1,
+    });
+    renderPage();
+    await screen.findByDisplayValue('Alice');
+
+    await userEvent.selectOptions(screen.getByLabelText('Link type'), 'TELEGRAM');
+    // The field is just the handle — the https://t.me/ prefix is shown as an adornment.
+    await userEvent.type(screen.getByLabelText('Telegram link'), 'yehor_br');
+    await userEvent.click(screen.getByRole('button', { name: /add link/i }));
+
+    await waitFor(() =>
+      expect(createLinkMock).toHaveBeenCalledWith(
+        { label: 'Telegram', url: 'https://t.me/yehor_br', type: 'TELEGRAM' },
+        expect.anything(),
+      ),
+    );
+  });
+
   it('edits an existing link in place', async () => {
     getMyProfileMock.mockResolvedValue(PROFILE);
     updateLinkMock.mockResolvedValue({ ...PROFILE.links[0], label: 'Home', url: 'https://alice.dev' });

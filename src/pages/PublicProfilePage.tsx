@@ -1,7 +1,7 @@
 import { Navigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { problemOf } from '../api/problem';
-import type { ProfileResponse } from '../api/profile';
+import { publicVcardUrl, type ProfileResponse } from '../api/profile';
 import { usePublicProfile } from '../features/profile/usePublicProfile';
 
 /**
@@ -55,6 +55,15 @@ function Card({ profile }: { profile: ProfileResponse }) {
       <h1 className="text-2xl font-bold text-slate-900">{profile.display_name ?? `@${profile.username}`}</h1>
       <p className="mt-1 text-sm text-slate-500">@{profile.username}</p>
       {profile.bio && <p className="mt-4 text-slate-700 whitespace-pre-line">{profile.bio}</p>}
+      {locationLine(profile) && (
+        <p className="mt-3 text-sm text-slate-500">📍 {locationLine(profile)}</p>
+      )}
+      <a
+        href={publicVcardUrl(profile.username)}
+        className="mt-6 inline-block w-full py-2 px-4 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition"
+      >
+        Save contact
+      </a>
       {links.length > 0 && (
         <ul className="mt-6 space-y-2">
           {links.map((link) => (
@@ -73,6 +82,12 @@ function Card({ profile }: { profile: ProfileResponse }) {
       )}
     </div>
   );
+}
+
+/** "Address, City, Country" — skips any parts the user left blank. */
+function locationLine(profile: ProfileResponse): string {
+  const loc = profile.location;
+  return loc ? [loc.address, loc.city, loc.country].filter(Boolean).join(', ') : '';
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

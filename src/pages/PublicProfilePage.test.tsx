@@ -8,6 +8,7 @@ import { ApiError } from '../api/client';
 
 vi.mock('../api/profile', () => ({
   getPublicProfile: vi.fn(),
+  publicVcardUrl: (u: string) => `http://localhost:8080/profiles/@${u}/vcard`,
 }));
 
 const getPublicProfileMock = vi.mocked(getPublicProfile);
@@ -52,7 +53,25 @@ describe('PublicProfilePage', () => {
     expect(screen.getByText('Mountain guide')).toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'My site' });
     expect(link).toHaveAttribute('href', 'https://alice.example');
+    const saveContact = screen.getByRole('link', { name: /save contact/i });
+    expect(saveContact).toHaveAttribute('href', 'http://localhost:8080/profiles/@alice/vcard');
     expect(getPublicProfileMock).toHaveBeenCalledWith('alice');
+  });
+
+  it('shows the location line when the profile has one', async () => {
+    getPublicProfileMock.mockResolvedValue({
+      id: 'uuid',
+      username: 'alice',
+      display_name: 'Alice Guide',
+      location: { country: 'Austria', city: 'Vienna', address: 'Stephansplatz 1' },
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      links: [],
+    });
+
+    renderAt('/@alice');
+
+    expect(await screen.findByText(/Stephansplatz 1, Vienna, Austria/)).toBeInTheDocument();
   });
 
   it('shows a not-found state on 404 profile_not_found', async () => {

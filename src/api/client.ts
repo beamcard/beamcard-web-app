@@ -13,7 +13,9 @@ import { useAuthStore } from '../stores/authStore';
  *   callers can branch on `err.status === 409` or inspect `err.body.code`.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+/** Gateway origin. Exported so callers can build direct links (e.g. file downloads). */
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080';
+const BASE_URL = API_BASE_URL;
 
 export class ApiError extends Error {
   constructor(
