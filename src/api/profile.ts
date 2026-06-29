@@ -1,4 +1,4 @@
-import { apiFetch, apiFetchText } from './client';
+import { API_BASE_URL, apiFetch, apiFetchText } from './client';
 
 /**
  * Wire shapes for profile-service. snake_case to match its Jackson config
@@ -25,11 +25,19 @@ export interface LinkResponse {
   position: number;
 }
 
+/** Optional working location; the whole object is omitted when none is set. */
+export interface Location {
+  country?: string;
+  city?: string;
+  address?: string;
+}
+
 export interface ProfileResponse {
   id: string;
   username: string;
   display_name?: string;
   bio?: string;
+  location?: Location;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -40,6 +48,7 @@ export interface ProfileResponse {
 export interface UpdateProfileRequest {
   display_name?: string;
   bio?: string;
+  location?: Location;
 }
 
 /**
@@ -167,6 +176,15 @@ export function removeAvatar(): Promise<ProfileResponse> {
 /** The public, shareable URL for a card (same origin as the SPA). */
 export function publicCardUrl(username: string): string {
   return `${window.location.origin}/@${username}`;
+}
+
+/**
+ * Direct link to the downloadable vCard (.vcf) for a public card. Points at the
+ * gateway, not the SPA; the server sends Content-Disposition: attachment, so
+ * the browser downloads it.
+ */
+export function publicVcardUrl(username: string): string {
+  return `${API_BASE_URL}/profiles/@${encodeURIComponent(username)}/vcard`;
 }
 
 /** GET /me/profile/qr — the caller's QR code as an SVG string (authenticated). */
