@@ -58,12 +58,15 @@ describe('PublicProfilePage', () => {
     expect(getPublicProfileMock).toHaveBeenCalledWith('alice');
   });
 
-  it('shows the location line when the profile has one', async () => {
+  it('shows the primary location and workplaces (role + street)', async () => {
     getPublicProfileMock.mockResolvedValue({
       id: 'uuid',
       username: 'alice',
       display_name: 'Alice Guide',
-      location: { country: 'Austria', city: 'Vienna', address: 'Stephansplatz 1' },
+      location: { country: 'Austria', city: 'Vienna' },
+      affiliations: [
+        { role: 'Product Designer', organization: 'Acme', address: 'Stephansplatz 1', description: 'Entrance B' },
+      ],
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
       links: [],
@@ -71,7 +74,10 @@ describe('PublicProfilePage', () => {
 
     renderAt('/@alice');
 
-    expect(await screen.findByText(/Stephansplatz 1, Vienna, Austria/)).toBeInTheDocument();
+    expect(await screen.findByText(/Vienna, Austria/)).toBeInTheDocument();
+    expect(screen.getByText('Product Designer · Acme')).toBeInTheDocument();
+    expect(screen.getByText('Stephansplatz 1')).toBeInTheDocument();
+    expect(screen.getByText('Entrance B')).toBeInTheDocument();
   });
 
   it('shows a not-found state on 404 profile_not_found', async () => {
