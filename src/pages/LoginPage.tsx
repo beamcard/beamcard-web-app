@@ -5,10 +5,10 @@ import type { AuthResponse } from '../api/auth';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const setToken = useAuthStore((s) => s.setToken);
+  const setSession = useAuthStore((s) => s.setSession);
 
   const handleSuccess = (res: AuthResponse) => {
-    setToken(res.access_token);
+    setSession(res.access_token, res.refresh_token);
     navigate('/app', { replace: true });
   };
 

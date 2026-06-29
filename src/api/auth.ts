@@ -20,6 +20,7 @@ export interface AuthResponse {
   access_token: string;
   token_type: 'Bearer';
   expires_in: number;
+  refresh_token: string;
   user: {
     id: string;
     email: string;
@@ -59,6 +60,22 @@ export function login(req: LoginRequest): Promise<AuthResponse> {
 
 export function getCurrentAccount(): Promise<AccountResponse> {
   return apiFetch<AccountResponse>('/auth/me');
+}
+
+/** POST /auth/refresh — exchange a refresh token for a fresh access + refresh pair (rotation). */
+export function refresh(refreshToken: string): Promise<AuthResponse> {
+  return apiFetch<AuthResponse>('/auth/refresh', {
+    method: 'POST',
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+}
+
+/** POST /auth/logout — revoke the refresh token server-side (JWT-protected). 204 on success. */
+export function logout(refreshToken: string): Promise<void> {
+  return apiFetch<void>('/auth/logout', {
+    method: 'POST',
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
 }
 
 /**

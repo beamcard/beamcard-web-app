@@ -1,6 +1,7 @@
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
+import { logout as logoutApi } from '../api/auth';
 import { useCurrentAccount } from '../features/auth/useCurrentAccount';
 
 export function AccountPage() {
@@ -10,6 +11,11 @@ export function AccountPage() {
   const { data: account, isLoading, isError } = useCurrentAccount();
 
   const logout = () => {
+    // Best-effort server-side revoke of the refresh token; clear locally regardless.
+    const refreshToken = useAuthStore.getState().refreshToken;
+    if (refreshToken) {
+      void logoutApi(refreshToken).catch(() => {});
+    }
     clear();
     queryClient.clear();
     navigate('/login', { replace: true });
