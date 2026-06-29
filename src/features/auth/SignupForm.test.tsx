@@ -45,6 +45,7 @@ describe('SignupForm', () => {
   it('calls signup API and reports success', async () => {
     const fakeResponse: AuthResponse = {
       access_token: 'token.value',
+      refresh_token: 'refresh.value',
       token_type: 'Bearer',
       expires_in: 900,
       user: { id: 'uuid', email: 'alice@example.com', username: 'alice', plan: 'free' },

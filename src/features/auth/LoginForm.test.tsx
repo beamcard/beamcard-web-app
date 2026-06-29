@@ -40,6 +40,7 @@ describe('LoginForm', () => {
 
   it('calls login API and reports success', async () => {
     const fakeResponse: AuthResponse = {
+      refresh_token: 'refresh.value',
       access_token: 'token.value',
       token_type: 'Bearer',
       expires_in: 900,

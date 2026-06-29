@@ -66,7 +66,7 @@ describe('MyProfilePage', () => {
     vi.mocked(deleteLink).mockReset();
     vi.mocked(reorderLinks).mockReset();
     vi.mocked(uploadAvatar).mockReset();
-    useAuthStore.getState().setToken('test-token');
+    useAuthStore.getState().setSession('test-token', 'test-refresh');
   });
 
   it('loads the profile and shows existing links', async () => {

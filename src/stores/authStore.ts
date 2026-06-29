@@ -2,16 +2,16 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 /**
- * Holds the access token. Persisted to localStorage so a refresh keeps the
- * session. The token is the single source of "are we logged in"; the user
- * profile itself is fetched from /auth/me (see useCurrentAccount).
- *
- * NOTE: access tokens are short-lived (15 min). Until refresh tokens land
- * (BC-6) an expired token simply forces a re-login on the next 401.
+ * Holds the session tokens, persisted to localStorage so a page refresh keeps
+ * the session. The access token is short-lived (15 min); the refresh token
+ * (30 days, rotating) is used by apiFetch to silently get a new pair on a 401,
+ * so the user isn't logged out mid-session.
  */
 interface AuthState {
   token: string | null;
-  setToken: (token: string) => void;
+  refreshToken: string | null;
+  /** Store a fresh access + refresh pair (login, signup, or after a refresh). */
+  setSession: (token: string, refreshToken: string) => void;
   clear: () => void;
 }
 
@@ -19,8 +19,9 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       token: null,
-      setToken: (token) => set({ token }),
-      clear: () => set({ token: null }),
+      refreshToken: null,
+      setSession: (token, refreshToken) => set({ token, refreshToken }),
+      clear: () => set({ token: null, refreshToken: null }),
     }),
     { name: 'beamcard-auth' },
   ),
