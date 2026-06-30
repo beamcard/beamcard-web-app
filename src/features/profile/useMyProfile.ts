@@ -1,13 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   createLink,
+  deleteAward,
   deleteLink,
   getMyProfile,
   removeAvatar,
+  reorderAwards,
   reorderLinks,
+  updateAward,
   updateLink,
   updateMyProfile,
   uploadAvatar,
+  uploadAward,
   type ProfileResponse,
 } from '../../api/profile';
 import { useAuthStore } from '../../stores/authStore';
@@ -41,5 +45,12 @@ export function useProfileMutations() {
     reorderLinks: useMutation({ mutationFn: (ids: string[]) => reorderLinks(ids), onSuccess: invalidate }),
     uploadAvatar: useMutation({ mutationFn: (file: File) => uploadAvatar(file), onSuccess: invalidate }),
     removeAvatar: useMutation({ mutationFn: () => removeAvatar(), onSuccess: invalidate }),
+    uploadAward: useMutation({ mutationFn: (file: File) => uploadAward(file), onSuccess: invalidate }),
+    updateAward: useMutation({
+      mutationFn: (vars: { id: string; description: string }) => updateAward(vars.id, vars.description),
+      onSuccess: invalidate,
+    }),
+    deleteAward: useMutation({ mutationFn: (id: string) => deleteAward(id), onSuccess: invalidate }),
+    reorderAwards: useMutation({ mutationFn: (ids: string[]) => reorderAwards(ids), onSuccess: invalidate }),
   };
 }

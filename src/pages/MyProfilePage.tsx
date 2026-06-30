@@ -5,6 +5,8 @@ import { problemOf } from '../api/problem';
 import {
   AVATAR_CONTENT_TYPES,
   AVATAR_MAX_BYTES,
+  AWARD_CONTENT_TYPES,
+  AWARD_MAX_BYTES,
   getMyProfileQr,
   publicCardUrl,
   type Affiliation,
@@ -81,8 +83,19 @@ export function MyProfilePage() {
 }
 
 function CardEditor({ profile }: { profile: ProfileResponse }) {
-  const { updateProfile, createLink, updateLink, deleteLink, reorderLinks, uploadAvatar, removeAvatar } =
-    useProfileMutations();
+  const {
+    updateProfile,
+    createLink,
+    updateLink,
+    deleteLink,
+    reorderLinks,
+    uploadAvatar,
+    removeAvatar,
+    uploadAward,
+    updateAward,
+    deleteAward,
+    reorderAwards,
+  } = useProfileMutations();
 
   const [displayName, setDisplayName] = useState(profile.display_name ?? '');
   const [bio, setBio] = useState(profile.bio ?? '');
@@ -98,12 +111,14 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
   const [error, setError] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const awardInputRef = useRef<HTMLInputElement>(null);
 
   const cardUrl = publicCardUrl(profile.username);
   // Only fetch the QR when the share dialog is opened.
   const qr = useQuery({ queryKey: ['profile', 'qr'], queryFn: getMyProfileQr, enabled: shareOpen });
 
   const links = [...profile.links].sort((a, b) => a.position - b.position);
+  const awards = [...(profile.awards ?? [])].sort((a, b) => a.position - b.position);
 
   const onPickAvatar = (file: File | undefined) => {
     if (!file) return;
@@ -119,6 +134,30 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
     uploadAvatar.mutate(file, {
       onError: (e) => setError(problemOf(e)?.detail ?? 'Could not upload the avatar.'),
     });
+  };
+
+  const onPickAward = (file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    if (!AWARD_CONTENT_TYPES.includes(file.type)) {
+      setError('Certificate must be a PNG, JPEG, or WebP image.');
+      return;
+    }
+    if (file.size > AWARD_MAX_BYTES) {
+      setError('Certificate must be 5 MB or smaller.');
+      return;
+    }
+    uploadAward.mutate(file, {
+      onError: (e) => setError(problemOf(e)?.detail ?? 'Could not upload the certificate.'),
+    });
+  };
+
+  const moveAward = (index: number, dir: -1 | 1) => {
+    const next = index + dir;
+    if (next < 0 || next >= awards.length) return;
+    const ids = awards.map((a) => a.id);
+    [ids[index], ids[next]] = [ids[next], ids[index]];
+    reorderAwards.mutate(ids);
   };
 
   const saveProfile = () => {
@@ -391,6 +430,88 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         </button>
       </section>
 
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-slate-900 mb-3">Certificates &amp; awards</h2>
+        {awards.length === 0 && <p className="text-sm text-slate-400 mb-3">No certificates yet.</p>}
+        {awards.length > 0 && (
+          <ul className="space-y-2 mb-4">
+            {awards.map((award, i) => (
+              <li
+                key={award.id}
+                className="group flex items-center gap-3 border border-slate-200 rounded-md p-2 transition-all duration-200 hover:border-slate-300 hover:shadow-sm"
+              >
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded border border-slate-200 bg-slate-50">
+                  <img
+                    src={award.image_url}
+                    alt={`Certificate ${i + 1}`}
+                    className="max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-110"
+                  />
+                </div>
+                <input
+                  defaultValue={award.description ?? ''}
+                  placeholder="Add a caption (optional)"
+                  aria-label={`Certificate ${i + 1} caption`}
+                  maxLength={300}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (award.description ?? '')) {
+                      updateAward.mutate({ id: award.id, description: value });
+                    }
+                  }}
+                  className="min-w-0 flex-1 px-3 py-2 border border-slate-300 rounded-md text-sm transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  aria-label={`Move certificate ${i + 1} up`}
+                  onClick={() => moveAward(i, -1)}
+                  disabled={i === 0 || reorderAwards.isPending}
+                  className="px-2 text-slate-500 transition-transform duration-150 hover:-translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Move certificate ${i + 1} down`}
+                  onClick={() => moveAward(i, 1)}
+                  disabled={i === awards.length - 1 || reorderAwards.isPending}
+                  className="px-2 text-slate-500 transition-transform duration-150 hover:translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Delete certificate ${i + 1}`}
+                  onClick={() => deleteAward.mutate(award.id)}
+                  disabled={deleteAward.isPending}
+                  className="px-2 text-red-600 transition-transform duration-150 hover:scale-125 hover:text-red-800 active:scale-90 disabled:opacity-30"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <input
+          ref={awardInputRef}
+          type="file"
+          accept={AWARD_CONTENT_TYPES.join(',')}
+          className="hidden"
+          onChange={(e) => {
+            onPickAward(e.target.files?.[0]);
+            e.target.value = ''; // allow re-selecting the same file
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => awardInputRef.current?.click()}
+          disabled={uploadAward.isPending}
+          className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
+        >
+          {uploadAward.isPending ? 'Uploading…' : '+ Add certificate'}
+        </button>
+        <p className="mt-2 text-xs text-slate-400">PNG, JPEG or WebP, up to 5 MB. Arrows set the display order.</p>
+      </section>
+
       <section>
         <h2 className="text-lg font-semibold text-slate-900 mb-3">Links</h2>
         <ul className="space-y-2 mb-6">
@@ -443,7 +564,10 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 </div>
               </li>
             ) : (
-              <li key={link.id} className="flex items-center gap-2 border border-slate-200 rounded-md px-3 py-2">
+              <li
+                key={link.id}
+                className="flex items-center gap-2 border border-slate-200 rounded-md px-3 py-2 transition-all duration-200 hover:border-slate-300 hover:shadow-sm"
+              >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-slate-900 truncate">{link.label}</p>
                   <p className="text-xs text-slate-500 truncate">{link.url}</p>
@@ -452,7 +576,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                   aria-label="Move up"
                   onClick={() => move(i, -1)}
                   disabled={i === 0 || reorderLinks.isPending}
-                  className="px-2 text-slate-500 hover:text-slate-900 disabled:opacity-30"
+                  className="px-2 text-slate-500 transition-transform duration-150 hover:-translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
                 >
                   ↑
                 </button>
@@ -460,14 +584,14 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                   aria-label="Move down"
                   onClick={() => move(i, 1)}
                   disabled={i === links.length - 1 || reorderLinks.isPending}
-                  className="px-2 text-slate-500 hover:text-slate-900 disabled:opacity-30"
+                  className="px-2 text-slate-500 transition-transform duration-150 hover:translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
                 >
                   ↓
                 </button>
                 <button
                   aria-label={`Edit ${link.label}`}
                   onClick={() => startEdit(link)}
-                  className="px-2 text-slate-500 hover:text-slate-900"
+                  className="px-2 text-slate-500 transition-transform duration-150 hover:scale-125 hover:text-slate-900 active:scale-90"
                 >
                   ✎
                 </button>
@@ -475,7 +599,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                   aria-label={`Delete ${link.label}`}
                   onClick={() => deleteLink.mutate(link.id)}
                   disabled={deleteLink.isPending}
-                  className="px-2 text-red-600 hover:text-red-800 disabled:opacity-30"
+                  className="px-2 text-red-600 transition-transform duration-150 hover:scale-125 hover:text-red-800 active:scale-90 disabled:opacity-30"
                 >
                   ✕
                 </button>
