@@ -25,10 +25,16 @@ vi.mock('../api/profile', () => ({
   reorderLinks: vi.fn(),
   uploadAvatar: vi.fn(),
   removeAvatar: vi.fn(),
+  uploadAward: vi.fn(),
+  updateAward: vi.fn(),
+  deleteAward: vi.fn(),
+  reorderAwards: vi.fn(),
   getMyProfileQr: vi.fn(() => Promise.resolve('<svg></svg>')),
   publicCardUrl: vi.fn((u: string) => `http://localhost/@${u}`),
   AVATAR_CONTENT_TYPES: ['image/png', 'image/jpeg', 'image/webp'],
   AVATAR_MAX_BYTES: 2 * 1024 * 1024,
+  AWARD_CONTENT_TYPES: ['image/png', 'image/jpeg', 'image/webp'],
+  AWARD_MAX_BYTES: 5 * 1024 * 1024,
 }));
 
 const getMyProfileMock = vi.mocked(getMyProfile);
@@ -44,6 +50,7 @@ const PROFILE: ProfileResponse = {
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
   links: [{ id: 'l1', label: 'Website', url: 'https://alice.example', type: 'GENERIC', position: 0 }],
+  awards: [],
 };
 
 function renderPage() {

@@ -7,3 +7,35 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Small reusable entrance animations (e.g. the certificate lightbox). */
+@keyframes bc-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes bc-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.bc-fade-in {
+  animation: bc-fade-in 0.15s ease-out;
+}
+.bc-zoom-in {
+  animation: bc-zoom-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .bc-fade-in,
+  .bc-zoom-in {
+    animation: none;
+  }
+}

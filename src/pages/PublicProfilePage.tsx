@@ -1,7 +1,8 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Navigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { problemOf } from '../api/problem';
-import { publicVcardUrl, type Affiliation, type ProfileResponse } from '../api/profile';
+import { publicVcardUrl, type Affiliation, type AwardResponse, type ProfileResponse } from '../api/profile';
 import { usePublicProfile } from '../features/profile/usePublicProfile';
 
 /**
@@ -44,6 +45,7 @@ function Card({ profile }: { profile: ProfileResponse }) {
   const links = [...profile.links].sort((a, b) => a.position - b.position);
   const name = profile.display_name ?? `@${profile.username}`;
   const workplaces = profile.affiliations ?? [];
+  const awards = [...(profile.awards ?? [])].sort((a, b) => a.position - b.position);
 
   return (
     <Page>
@@ -90,6 +92,8 @@ function Card({ profile }: { profile: ProfileResponse }) {
           </ul>
         )}
 
+        {awards.length > 0 && <Awards awards={awards} name={name} />}
+
         {workplaces.length > 0 && (
           <section className="mt-8 text-left">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Where to find me</h2>
@@ -108,6 +112,136 @@ function Card({ profile }: { profile: ProfileResponse }) {
 
       <p className="mt-6 text-center text-xs text-slate-400">Made with Beamcard</p>
     </Page>
+  );
+}
+
+/**
+ * Certificates / diplomas. Thumbnails show the *whole* document (letterboxed, never
+ * cropped), since certificates are text-heavy and vary in orientation. Tapping one
+ * opens a full-screen viewer with prev/next navigation (arrows, keyboard, swipe-free).
+ */
+function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
+  const [index, setIndex] = useState<number | null>(null);
+  const open = index !== null;
+  const count = awards.length;
+  const current = index === null ? null : awards[index];
+
+  const close = useCallback(() => setIndex(null), []);
+  const go = useCallback(
+    (dir: 1 | -1) => setIndex((i) => (i === null ? i : (i + dir + count) % count)),
+    [count],
+  );
+
+  // While the viewer is open: arrow keys navigate, Escape closes, body scroll locks.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowRight') go(1);
+      else if (e.key === 'ArrowLeft') go(-1);
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [open, close, go]);
+
+  return (
+    <section className="mt-8 text-left">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Certificates &amp; awards</h2>
+      <ul className="mt-3 grid grid-cols-2 gap-3">
+        {awards.map((award, i) => (
+          <li key={award.id}>
+            <button
+              type="button"
+              onClick={() => setIndex(i)}
+              title={award.description}
+              className="group block w-full rounded-xl border border-slate-200 bg-slate-50 p-2 transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 active:scale-[.98]"
+            >
+              <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg">
+                <img
+                  src={award.image_url}
+                  alt={award.description || `${name} — certificate`}
+                  loading="lazy"
+                  className="max-h-full max-w-full object-contain transition-transform duration-300 ease-out group-hover:scale-105"
+                />
+              </div>
+            </button>
+            {award.description && <p className="mt-1 truncate text-xs text-slate-500">{award.description}</p>}
+          </li>
+        ))}
+      </ul>
+
+      {open && current && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Certificate viewer"
+          onClick={close}
+          className="bc-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-8"
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={close}
+            className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-2xl text-white transition hover:scale-110 hover:bg-white/20 active:scale-90 sm:right-5 sm:top-5"
+          >
+            ✕
+          </button>
+
+          {count > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous certificate"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  go(-1);
+                }}
+                className="absolute left-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl leading-none text-white transition duration-150 hover:-translate-x-0.5 hover:bg-white/20 active:scale-90 sm:left-5"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                aria-label="Next certificate"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  go(1);
+                }}
+                className="absolute right-2 top-1/2 z-10 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-3xl leading-none text-white transition duration-150 hover:translate-x-0.5 hover:bg-white/20 active:scale-90 sm:right-5"
+              >
+                ›
+              </button>
+            </>
+          )}
+
+          <figure
+            onClick={(e) => e.stopPropagation()}
+            className="flex max-h-full max-w-3xl flex-col items-center gap-4"
+          >
+            <img
+              key={index}
+              src={current.image_url}
+              alt={current.description || `${name} — certificate`}
+              className="bc-zoom-in max-h-[80vh] w-auto max-w-full rounded-lg object-contain shadow-2xl"
+            />
+            <figcaption className="text-center">
+              {current.description && (
+                <span className="block max-w-prose text-sm text-slate-200">{current.description}</span>
+              )}
+              {count > 1 && (
+                <span className="mt-1 block text-xs text-slate-500">
+                  {index + 1} / {count}
+                </span>
+              )}
+            </figcaption>
+          </figure>
+        </div>
+      )}
+    </section>
   );
 }
 

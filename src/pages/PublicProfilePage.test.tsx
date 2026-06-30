@@ -43,6 +43,7 @@ describe('PublicProfilePage', () => {
       links: [
         { id: 'l1', label: 'My site', url: 'https://alice.example', type: 'GENERIC', position: 0 },
       ],
+      awards: [],
     };
     getPublicProfileMock.mockResolvedValue(profile);
 
@@ -70,6 +71,7 @@ describe('PublicProfilePage', () => {
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
       links: [],
+      awards: [],
     });
 
     renderAt('/@alice');
@@ -78,6 +80,39 @@ describe('PublicProfilePage', () => {
     expect(screen.getByText('Product Designer · Acme')).toBeInTheDocument();
     expect(screen.getByText('Stephansplatz 1')).toBeInTheDocument();
     expect(screen.getByText('Entrance B')).toBeInTheDocument();
+  });
+
+  it('renders the certificates gallery and opens a lightbox on tap', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    getPublicProfileMock.mockResolvedValue({
+      id: 'uuid',
+      username: 'alice',
+      display_name: 'Alice Guide',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      links: [],
+      awards: [
+        { id: 'a1', image_url: 'https://cdn/awards/a1.png', description: 'Board Certification 2024', position: 1 },
+        { id: 'a2', image_url: 'https://cdn/awards/a2.png', position: 2 },
+      ],
+    });
+
+    renderAt('/@alice');
+
+    expect(await screen.findByText(/Certificates & awards/i)).toBeInTheDocument();
+    const thumbs = screen.getAllByRole('img', { name: /certificate|Board Certification/i });
+    expect(thumbs).toHaveLength(2);
+    expect(screen.getByText('Board Certification 2024')).toBeInTheDocument();
+
+    await userEvent.click(screen.getAllByRole('button')[0]);
+    expect(screen.getByRole('dialog', { name: /certificate/i })).toBeInTheDocument();
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
+
+    // Arrows navigate between certificates.
+    await userEvent.click(screen.getByRole('button', { name: /next certificate/i }));
+    expect(screen.getByText('2 / 2')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /previous certificate/i }));
+    expect(screen.getByText('1 / 2')).toBeInTheDocument();
   });
 
   it('shows a not-found state on 404 profile_not_found', async () => {

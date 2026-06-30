@@ -40,6 +40,15 @@ export interface Affiliation {
   description?: string;
 }
 
+/** One uploaded certificate/diploma image; image_url is a public storage URL. */
+export interface AwardResponse {
+  id: string;
+  image_url: string;
+  /** Optional caption (e.g. issuing institution / what it certifies). */
+  description?: string;
+  position: number;
+}
+
 export interface ProfileResponse {
   id: string;
   username: string;
@@ -51,6 +60,7 @@ export interface ProfileResponse {
   created_at: string;
   updated_at: string;
   links: LinkResponse[];
+  awards: AwardResponse[];
 }
 
 /** PUT body — partial; an omitted field leaves the stored value unchanged. */
@@ -135,15 +145,15 @@ export function reorderLinks(ids: string[]): Promise<LinkResponse[]> {
 export const AVATAR_MAX_BYTES = 2 * 1024 * 1024; // mirrors backend beamcard.avatar.max-size-bytes
 export const AVATAR_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
-interface AvatarUploadTarget {
+interface UploadTarget {
   upload_url: string;
   key: string;
   expires_at: string;
 }
 
 /** Step 1 — ask the service for a presigned PUT target for the given content type. */
-function requestAvatarUploadUrl(contentType: string): Promise<AvatarUploadTarget> {
-  return apiFetch<AvatarUploadTarget>('/me/profile/avatar/upload-url', {
+function requestAvatarUploadUrl(contentType: string): Promise<UploadTarget> {
+  return apiFetch<UploadTarget>('/me/profile/avatar/upload-url', {
     method: 'POST',
     body: JSON.stringify({ content_type: contentType }),
   });
@@ -179,6 +189,55 @@ export async function uploadAvatar(file: File): Promise<ProfileResponse> {
 /** DELETE /me/profile/avatar — clear the avatar. */
 export function removeAvatar(): Promise<ProfileResponse> {
   return apiFetch<ProfileResponse>('/me/profile/avatar', { method: 'DELETE' });
+}
+
+/* ------------------------------- awards ------------------------------- */
+
+export const AWARD_MAX_BYTES = 5 * 1024 * 1024; // mirrors backend beamcard.award.max-size-bytes
+export const AWARD_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+/** Step 1 — presigned PUT target for an award image. */
+function requestAwardUploadUrl(contentType: string): Promise<UploadTarget> {
+  return apiFetch<UploadTarget>('/me/profile/awards/upload-url', {
+    method: 'POST',
+    body: JSON.stringify({ content_type: contentType }),
+  });
+}
+
+/** Step 3 — confirm the upload; the service validates and creates the award row. */
+function confirmAward(key: string): Promise<AwardResponse> {
+  return apiFetch<AwardResponse>('/me/profile/awards', {
+    method: 'POST',
+    body: JSON.stringify({ key }),
+  });
+}
+
+/** Full award upload: presign → PUT bytes → confirm. Returns the new award. */
+export async function uploadAward(file: File): Promise<AwardResponse> {
+  const target = await requestAwardUploadUrl(file.type);
+  await putBytes(target.upload_url, file);
+  return confirmAward(target.key);
+}
+
+/** PUT /me/profile/awards/{id} — set or clear the caption on one award. */
+export function updateAward(id: string, description: string): Promise<AwardResponse> {
+  return apiFetch<AwardResponse>(`/me/profile/awards/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ description }),
+  });
+}
+
+/** DELETE /me/profile/awards/{id} — remove one award (and its stored image). */
+export function deleteAward(id: string): Promise<void> {
+  return apiFetch<void>(`/me/profile/awards/${id}`, { method: 'DELETE' });
+}
+
+/** PUT /me/profile/awards/order — reorder the caller's awards to match `ids`. */
+export function reorderAwards(ids: string[]): Promise<AwardResponse[]> {
+  return apiFetch<AwardResponse[]>('/me/profile/awards/order', {
+    method: 'PUT',
+    body: JSON.stringify({ ids }),
+  });
 }
 
 /* ------------------------------- share -------------------------------- */
