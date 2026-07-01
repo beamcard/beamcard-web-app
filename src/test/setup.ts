@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest';
+import '../i18n'; // initialize i18next (default language en) so t() resolves in tests
 
 // jsdom's localStorage is unreliable under this Vitest/jsdom combo (setItem can
 // be missing), which breaks zustand's `persist`. Install a minimal in-memory

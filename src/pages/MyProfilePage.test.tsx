@@ -51,6 +51,7 @@ const PROFILE: ProfileResponse = {
   updated_at: '2026-01-01T00:00:00Z',
   links: [{ id: 'l1', label: 'Website', url: 'https://alice.example', type: 'GENERIC', position: 0 }],
   awards: [],
+  locale: 'en',
 };
 
 function renderPage() {

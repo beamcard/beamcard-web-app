@@ -1,31 +1,40 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { LoginForm } from '../features/auth/LoginForm';
 import { useAuthStore } from '../stores/authStore';
 import type { AuthResponse } from '../api/auth';
 
 export function LoginPage() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const token = useAuthStore((s) => s.token);
   const setSession = useAuthStore((s) => s.setSession);
 
   const handleSuccess = (res: AuthResponse) => {
     setSession(res.access_token, res.refresh_token);
+    void i18n.changeLanguage(res.user.locale);
     navigate('/app', { replace: true });
   };
 
+  // Already signed in — don't show the form; go to the app.
+  if (token) {
+    return <Navigate to="/app" replace />;
+  }
+
   return (
     <div className="max-w-md mx-auto mt-20 p-6">
-      <h1 className="text-2xl font-bold text-slate-900">Welcome back</h1>
-      <p className="text-sm text-slate-600 mb-6 italic">Beam me your profile.</p>
+      <h1 className="text-2xl font-bold text-slate-900">{t('auth.welcomeBack')}</h1>
+      <p className="text-sm text-slate-600 mb-6 italic">{t('auth.tagline')}</p>
       <LoginForm onSuccess={handleSuccess} />
       <p className="mt-4 text-sm">
         <Link className="text-indigo-600 hover:underline" to="/forgot-password">
-          Forgot your password?
+          {t('auth.forgotLink')}
         </Link>
       </p>
       <p className="mt-2 text-sm text-slate-600">
-        New to Beamcard?{' '}
+        {t('auth.newToBeamcard')}{' '}
         <Link className="text-indigo-600 hover:underline" to="/signup">
-          Create an account
+          {t('auth.createAccount')}
         </Link>
       </p>
     </div>

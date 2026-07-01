@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { problemOf } from '../api/problem';
 import {
@@ -15,6 +16,8 @@ import {
   type ProfileResponse,
 } from '../api/profile';
 import { useMyProfile, useProfileMutations } from '../features/profile/useMyProfile';
+import { mapQuery } from '../features/profile/maps';
+import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 import { ShareDialog } from '../features/profile/ShareDialog';
 import { LINK_PREFIX, VALUE_PLACEHOLDER, composeUrl, hasPrefix, toHandle } from '../features/profile/linkComposer';
 import { COUNTRIES } from '../features/profile/countries';
@@ -70,19 +73,21 @@ function toAffiliations(rows: WorkplaceRow[]): Affiliation[] {
 }
 
 export function MyProfilePage() {
+  const { t } = useTranslation();
   const { data: profile, isLoading, isError } = useMyProfile();
 
   if (isLoading) {
-    return <div className="max-w-md mx-auto mt-20 p-6 text-slate-600">Loading your card…</div>;
+    return <div className="max-w-md mx-auto mt-20 p-6 text-slate-600">{t('editor.loading')}</div>;
   }
   if (isError || !profile) {
-    return <div className="max-w-md mx-auto mt-20 p-6 text-sm text-red-600">Couldn't load your card.</div>;
+    return <div className="max-w-md mx-auto mt-20 p-6 text-sm text-red-600">{t('editor.loadError')}</div>;
   }
   // Mount the editor only once loaded, so its state seeds from the profile without an effect.
   return <CardEditor profile={profile} />;
 }
 
 function CardEditor({ profile }: { profile: ProfileResponse }) {
+  const { t } = useTranslation();
   const {
     updateProfile,
     createLink,
@@ -124,15 +129,15 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
     if (!file) return;
     setError(null);
     if (!AVATAR_CONTENT_TYPES.includes(file.type)) {
-      setError('Avatar must be a PNG, JPEG, or WebP image.');
+      setError(t('editor.avatarType'));
       return;
     }
     if (file.size > AVATAR_MAX_BYTES) {
-      setError('Avatar must be 2 MB or smaller.');
+      setError(t('editor.avatarSize'));
       return;
     }
     uploadAvatar.mutate(file, {
-      onError: (e) => setError(problemOf(e)?.detail ?? 'Could not upload the avatar.'),
+      onError: (e) => setError(problemOf(e)?.detail ?? t('editor.avatarUploadError')),
     });
   };
 
@@ -140,15 +145,15 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
     if (!file) return;
     setError(null);
     if (!AWARD_CONTENT_TYPES.includes(file.type)) {
-      setError('Certificate must be a PNG, JPEG, or WebP image.');
+      setError(t('editor.certType'));
       return;
     }
     if (file.size > AWARD_MAX_BYTES) {
-      setError('Certificate must be 5 MB or smaller.');
+      setError(t('editor.certSize'));
       return;
     }
     uploadAward.mutate(file, {
-      onError: (e) => setError(problemOf(e)?.detail ?? 'Could not upload the certificate.'),
+      onError: (e) => setError(problemOf(e)?.detail ?? t('editor.certUploadError')),
     });
   };
 
@@ -164,7 +169,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
     setError(null);
     updateProfile.mutate(
       { display_name: displayName, bio, location: { country, city }, affiliations: toAffiliations(workplaces) },
-      { onError: (e) => setError(problemOf(e)?.detail ?? 'Could not save your profile.') },
+      { onError: (e) => setError(problemOf(e)?.detail ?? t('editor.saveError')) },
     );
   };
 
@@ -188,7 +193,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         },
         onError: (e) => {
           const p = problemOf(e);
-          setError(p?.errors?.url ?? p?.detail ?? 'Could not add the link.');
+          setError(p?.errors?.url ?? p?.detail ?? t('editor.linkAddError'));
         },
       },
     );
@@ -212,7 +217,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         onSuccess: () => setEditingId(null),
         onError: (e) => {
           const p = problemOf(e);
-          setError(p?.errors?.url ?? p?.detail ?? 'Could not save the link.');
+          setError(p?.errors?.url ?? p?.detail ?? t('editor.linkSaveError'));
         },
       },
     );
@@ -233,13 +238,13 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 px-4 py-10">
       <div className="mx-auto max-w-md rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200/70 sm:p-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Your card</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t('editor.title')}</h1>
           <div className="flex gap-3 text-sm">
             <RouterLink to={`/@${profile.username}`} className="text-indigo-600 hover:underline">
-              View public
+              {t('editor.viewPublic')}
             </RouterLink>
             <RouterLink to="/app" className="text-slate-600 hover:underline">
-              Account
+              {t('editor.account')}
             </RouterLink>
           </div>
         </div>
@@ -279,7 +284,11 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             disabled={uploadAvatar.isPending}
             className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
           >
-            {uploadAvatar.isPending ? 'Uploading…' : profile.avatar_url ? 'Change photo' : 'Upload photo'}
+            {uploadAvatar.isPending
+              ? t('editor.uploading')
+              : profile.avatar_url
+                ? t('editor.changePhoto')
+                : t('editor.uploadPhoto')}
           </button>
           {profile.avatar_url && (
             <button
@@ -288,16 +297,16 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
               disabled={removeAvatar.isPending}
               className="ml-2 py-1.5 px-3 text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
             >
-              Remove
+              {t('editor.remove')}
             </button>
           )}
-          <p className="text-xs text-slate-400">PNG, JPEG or WebP, up to 2 MB.</p>
+          <p className="text-xs text-slate-400">{t('editor.avatarHint')}</p>
         </div>
       </section>
 
       <section className="mb-8 flex items-center justify-between gap-3 border border-slate-200 rounded-md p-4">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-700">Share your card</p>
+          <p className="text-sm font-medium text-slate-700">{t('editor.shareTitle')}</p>
           <p className="text-xs text-slate-500 truncate">{cardUrl}</p>
         </div>
         <button
@@ -305,7 +314,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           onClick={() => setShareOpen(true)}
           className="shrink-0 py-2 px-3 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
         >
-          Share &amp; print
+          {t('editor.shareButton')}
         </button>
       </section>
 
@@ -321,7 +330,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
 
       <section className="space-y-3 mb-8">
         <label className="block text-sm font-medium text-slate-700">
-          Display name
+          {t('editor.displayName')}
           <input
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
@@ -329,7 +338,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           />
         </label>
         <label className="block text-sm font-medium text-slate-700">
-          Bio
+          {t('editor.bio')}
           <textarea
             value={bio}
             onChange={(e) => setBio(e.target.value)}
@@ -339,11 +348,11 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         </label>
 
         <fieldset className="space-y-2">
-          <legend className="text-sm font-medium text-slate-700">Primary location (optional)</legend>
+          <legend className="text-sm font-medium text-slate-700">{t('editor.primaryLocation')}</legend>
           <div className="flex gap-2">
             <input
-              aria-label="Country"
-              placeholder="Country"
+              aria-label={t('editor.country')}
+              placeholder={t('editor.country')}
               list="country-options"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
@@ -355,8 +364,8 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
               ))}
             </datalist>
             <input
-              aria-label="City"
-              placeholder="City"
+              aria-label={t('editor.city')}
+              placeholder={t('editor.city')}
               value={city}
               onChange={(e) => setCity(e.target.value)}
               className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
@@ -365,51 +374,54 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         </fieldset>
 
         <fieldset className="space-y-3">
-          <legend className="text-sm font-medium text-slate-700">Workplaces (optional)</legend>
-          <p className="text-xs text-slate-400">Each workplace's street address — within your primary city above.</p>
+          <legend className="text-sm font-medium text-slate-700">{t('editor.workplaces')}</legend>
+          <p className="text-xs text-slate-400">{t('editor.workplacesHint')}</p>
           {workplaces.map((w, i) => (
             <div key={i} className="space-y-2 border border-slate-200 rounded-md p-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-slate-500">Workplace {i + 1}</span>
+                <span className="text-xs font-medium text-slate-500">{t('editor.workplaceN', { n: i + 1 })}</span>
                 <button
                   type="button"
-                  aria-label={`Remove workplace ${i + 1}`}
+                  aria-label={t('editor.removeWorkplace', { n: i + 1 })}
                   onClick={() => removeWorkplace(i)}
                   className="text-sm text-red-600 hover:text-red-800"
                 >
-                  Remove
+                  {t('editor.remove')}
                 </button>
               </div>
               <div className="flex gap-2">
                 <input
-                  aria-label={`Role ${i + 1}`}
-                  placeholder="Role (e.g. Trainer)"
+                  aria-label={t('editor.roleAria', { n: i + 1 })}
+                  placeholder={t('editor.rolePlaceholder')}
                   value={w.role}
                   onChange={(e) => updateWorkplace(i, 'role', e.target.value)}
                   className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
                 />
                 <input
-                  aria-label={`Organization ${i + 1}`}
-                  placeholder="Organization (e.g. FitGym)"
+                  aria-label={t('editor.orgAria', { n: i + 1 })}
+                  placeholder={t('editor.orgPlaceholder')}
                   value={w.organization}
                   onChange={(e) => updateWorkplace(i, 'organization', e.target.value)}
                   className="w-1/2 px-3 py-2 border border-slate-300 rounded-md"
                 />
               </div>
               <input
-                aria-label={`Address ${i + 1}`}
-                placeholder="Address (street, number)"
+                aria-label={t('editor.addressAria', { n: i + 1 })}
+                placeholder={t('editor.addressPlaceholder')}
                 value={w.address}
                 onChange={(e) => updateWorkplace(i, 'address', e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md"
               />
               <input
-                aria-label={`Description ${i + 1}`}
-                placeholder="How to find it (e.g. inside the mall, 2nd floor)"
+                aria-label={t('editor.findAria', { n: i + 1 })}
+                placeholder={t('editor.findPlaceholder')}
                 value={w.description}
                 onChange={(e) => updateWorkplace(i, 'description', e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-md"
               />
+              {w.address.trim() && (
+                <WorkplaceMap query={mapQuery({ address: w.address, city, country })} debounceMs={600} />
+              )}
             </div>
           ))}
           <button
@@ -417,7 +429,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             onClick={addWorkplace}
             className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
           >
-            + Add workplace
+            {t('editor.addWorkplace')}
           </button>
         </fieldset>
 
@@ -426,13 +438,13 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           disabled={updateProfile.isPending}
           className="py-2 px-4 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50"
         >
-          {updateProfile.isPending ? 'Saving…' : 'Save profile'}
+          {updateProfile.isPending ? t('editor.savingProfile') : t('editor.saveProfile')}
         </button>
       </section>
 
       <section className="mb-8">
-        <h2 className="text-lg font-semibold text-slate-900 mb-3">Certificates &amp; awards</h2>
-        {awards.length === 0 && <p className="text-sm text-slate-400 mb-3">No certificates yet.</p>}
+        <h2 className="text-lg font-semibold text-slate-900 mb-3">{t('editor.certificates')}</h2>
+        {awards.length === 0 && <p className="text-sm text-slate-400 mb-3">{t('editor.noCertificates')}</p>}
         {awards.length > 0 && (
           <ul className="space-y-2 mb-4">
             {awards.map((award, i) => (
@@ -449,8 +461,8 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 </div>
                 <input
                   defaultValue={award.description ?? ''}
-                  placeholder="Add a caption (optional)"
-                  aria-label={`Certificate ${i + 1} caption`}
+                  placeholder={t('editor.captionPlaceholder')}
+                  aria-label={t('editor.captionAria', { n: i + 1 })}
                   maxLength={300}
                   onBlur={(e) => {
                     const value = e.target.value.trim();
@@ -462,7 +474,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 />
                 <button
                   type="button"
-                  aria-label={`Move certificate ${i + 1} up`}
+                  aria-label={t('editor.certMoveUp', { n: i + 1 })}
                   onClick={() => moveAward(i, -1)}
                   disabled={i === 0 || reorderAwards.isPending}
                   className="px-2 text-slate-500 transition-transform duration-150 hover:-translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
@@ -471,7 +483,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 </button>
                 <button
                   type="button"
-                  aria-label={`Move certificate ${i + 1} down`}
+                  aria-label={t('editor.certMoveDown', { n: i + 1 })}
                   onClick={() => moveAward(i, 1)}
                   disabled={i === awards.length - 1 || reorderAwards.isPending}
                   className="px-2 text-slate-500 transition-transform duration-150 hover:translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
@@ -480,7 +492,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                 </button>
                 <button
                   type="button"
-                  aria-label={`Delete certificate ${i + 1}`}
+                  aria-label={t('editor.certDelete', { n: i + 1 })}
                   onClick={() => deleteAward.mutate(award.id)}
                   disabled={deleteAward.isPending}
                   className="px-2 text-red-600 transition-transform duration-150 hover:scale-125 hover:text-red-800 active:scale-90 disabled:opacity-30"
@@ -507,21 +519,21 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
           disabled={uploadAward.isPending}
           className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
         >
-          {uploadAward.isPending ? 'Uploading…' : '+ Add certificate'}
+          {uploadAward.isPending ? t('editor.uploading') : t('editor.addCertificate')}
         </button>
-        <p className="mt-2 text-xs text-slate-400">PNG, JPEG or WebP, up to 5 MB. Arrows set the display order.</p>
+        <p className="mt-2 text-xs text-slate-400">{t('editor.certHint')}</p>
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold text-slate-900 mb-3">Links</h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-3">{t('editor.links')}</h2>
         <ul className="space-y-2 mb-6">
-          {links.length === 0 && <li className="text-sm text-slate-400">No links yet.</li>}
+          {links.length === 0 && <li className="text-sm text-slate-400">{t('editor.noLinks')}</li>}
           {links.map((link, i) =>
             editingId === link.id ? (
               <li key={link.id} className="border border-indigo-300 rounded-md px-3 py-2 space-y-2">
                 {link.type === 'GENERIC' && (
                   <input
-                    aria-label="Edit label"
+                    aria-label={t('editor.editLabelAria')}
                     value={editLabel}
                     onChange={(e) => setEditLabel(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-md"
@@ -533,7 +545,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                       {LINK_PREFIX[link.type]}
                     </span>
                     <input
-                      aria-label="Edit URL"
+                      aria-label={t('editor.editUrlAria')}
                       value={editUrl}
                       onChange={(e) => setEditUrl(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-300 rounded-r-md"
@@ -553,13 +565,13 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                     disabled={updateLink.isPending || !editUrl || (link.type === 'GENERIC' && !editLabel.trim())}
                     className="py-1.5 px-3 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
                   >
-                    {updateLink.isPending ? 'Saving…' : 'Save'}
+                    {updateLink.isPending ? t('editor.savingProfile') : t('common.save')}
                   </button>
                   <button
                     onClick={cancelEdit}
                     className="py-1.5 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </button>
                 </div>
               </li>
@@ -573,7 +585,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                   <p className="text-xs text-slate-500 truncate">{link.url}</p>
                 </div>
                 <button
-                  aria-label="Move up"
+                  aria-label={t('editor.moveUp')}
                   onClick={() => move(i, -1)}
                   disabled={i === 0 || reorderLinks.isPending}
                   className="px-2 text-slate-500 transition-transform duration-150 hover:-translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
@@ -581,7 +593,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                   ↑
                 </button>
                 <button
-                  aria-label="Move down"
+                  aria-label={t('editor.moveDown')}
                   onClick={() => move(i, 1)}
                   disabled={i === links.length - 1 || reorderLinks.isPending}
                   className="px-2 text-slate-500 transition-transform duration-150 hover:translate-y-0.5 hover:text-slate-900 active:scale-90 disabled:opacity-30 disabled:hover:translate-y-0"
@@ -589,14 +601,14 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
                   ↓
                 </button>
                 <button
-                  aria-label={`Edit ${link.label}`}
+                  aria-label={t('editor.editLink', { label: link.label })}
                   onClick={() => startEdit(link)}
                   className="px-2 text-slate-500 transition-transform duration-150 hover:scale-125 hover:text-slate-900 active:scale-90"
                 >
                   ✎
                 </button>
                 <button
-                  aria-label={`Delete ${link.label}`}
+                  aria-label={t('editor.deleteLink', { label: link.label })}
                   onClick={() => deleteLink.mutate(link.id)}
                   disabled={deleteLink.isPending}
                   className="px-2 text-red-600 transition-transform duration-150 hover:scale-125 hover:text-red-800 active:scale-90 disabled:opacity-30"
@@ -609,23 +621,23 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
         </ul>
 
         <div className="space-y-2 border-t border-slate-200 pt-4">
-          <h3 className="text-sm font-medium text-slate-700">Add a link</h3>
+          <h3 className="text-sm font-medium text-slate-700">{t('editor.addLink')}</h3>
           <select
-            aria-label="Link type"
+            aria-label={t('editor.linkTypeAria')}
             value={type}
             onChange={(e) => setType(e.target.value as LinkType)}
             className="w-full px-3 py-2 border border-slate-300 rounded-md"
           >
-            {LINK_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {TYPE_LABELS[t]}
+            {LINK_TYPES.map((linkType) => (
+              <option key={linkType} value={linkType}>
+                {t(`linkTypes.${linkType}`)}
               </option>
             ))}
           </select>
           {isGeneric && (
             <input
-              placeholder="Label (e.g. My blog)"
-              aria-label="Label"
+              placeholder={t('editor.linkLabelPlaceholder')}
+              aria-label={t('editor.linkLabelAria')}
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-md"
@@ -658,7 +670,7 @@ function CardEditor({ profile }: { profile: ProfileResponse }) {
             disabled={createLink.isPending || !canAdd}
             className="py-2 px-4 bg-slate-800 text-white font-medium rounded-md hover:bg-slate-900 disabled:opacity-50"
           >
-            {createLink.isPending ? 'Adding…' : 'Add link'}
+            {createLink.isPending ? t('editor.addingLink') : t('editor.addLinkButton')}
           </button>
         </div>
       </section>

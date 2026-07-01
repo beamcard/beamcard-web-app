@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { ApiError } from '../../api/client';
 import { login, type AuthResponse } from '../../api/auth';
 import { problemOf } from '../../api/problem';
@@ -11,10 +12,8 @@ interface Props {
   onSuccess: (response: AuthResponse) => void;
 }
 
-const NETWORK_ERROR = "Couldn't reach the server. Is the API gateway running on port 8080?";
-const GENERIC_ERROR = 'Something went wrong. Please try again.';
-
 export function LoginForm({ onSuccess }: Props) {
+  const { t } = useTranslation();
   const emailId = useId();
   const passwordId = useId();
   const [formError, setFormError] = useState<string | null>(null);
@@ -37,15 +36,15 @@ export function LoginForm({ onSuccess }: Props) {
       if (err instanceof ApiError) {
         const code = problemOf(err)?.code;
         if (err.status === 401) {
-          setFormError('Invalid email or password.');
+          setFormError(t('auth.invalidCredentials'));
         } else if (err.status === 403 && code === 'account_inactive') {
-          setFormError('This account is not active.');
+          setFormError(t('auth.accountInactive'));
         } else {
           // 400 (validation_failed), 500 (internal_error), anything else.
-          setFormError(GENERIC_ERROR);
+          setFormError(t('common.genericError'));
         }
       } else {
-        setFormError(NETWORK_ERROR);
+        setFormError(t('common.networkError'));
       }
     },
   });
@@ -63,7 +62,7 @@ export function LoginForm({ onSuccess }: Props) {
     >
       <div>
         <label htmlFor={emailId} className="block text-sm font-medium text-slate-700 mb-1">
-          Email
+          {t('auth.email')}
         </label>
         <input
           id={emailId}
@@ -72,12 +71,12 @@ export function LoginForm({ onSuccess }: Props) {
           {...register('email')}
           className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
-        {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>}
+        {errors.email && <p className="mt-1 text-sm text-red-600">{t(errors.email.message ?? '')}</p>}
       </div>
 
       <div>
         <label htmlFor={passwordId} className="block text-sm font-medium text-slate-700 mb-1">
-          Password
+          {t('auth.password')}
         </label>
         <input
           id={passwordId}
@@ -86,7 +85,7 @@ export function LoginForm({ onSuccess }: Props) {
           {...register('password')}
           className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
-        {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>}
+        {errors.password && <p className="mt-1 text-sm text-red-600">{t(errors.password.message ?? '')}</p>}
       </div>
 
       {formError && <p className="text-sm text-red-600">{formError}</p>}
@@ -96,7 +95,7 @@ export function LoginForm({ onSuccess }: Props) {
         disabled={submitting}
         className="w-full py-2 px-4 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
       >
-        {submitting ? 'Signing in…' : 'Sign in'}
+        {submitting ? t('auth.signingIn') : t('auth.signIn')}
       </button>
     </form>
   );

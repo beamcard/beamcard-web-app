@@ -44,6 +44,7 @@ describe('PublicProfilePage', () => {
         { id: 'l1', label: 'My site', url: 'https://alice.example', type: 'GENERIC', position: 0 },
       ],
       awards: [],
+      locale: 'en',
     };
     getPublicProfileMock.mockResolvedValue(profile);
 
@@ -72,6 +73,7 @@ describe('PublicProfilePage', () => {
       updated_at: '2026-01-01T00:00:00Z',
       links: [],
       awards: [],
+      locale: 'en',
     });
 
     renderAt('/@alice');
@@ -80,6 +82,12 @@ describe('PublicProfilePage', () => {
     expect(screen.getByText('Product Designer · Acme')).toBeInTheDocument();
     expect(screen.getByText('Stephansplatz 1')).toBeInTheDocument();
     expect(screen.getByText('Entrance B')).toBeInTheDocument();
+    // With no Maps key configured, the workplace still offers a keyless directions link.
+    const directions = screen.getByRole('link', { name: /get directions/i });
+    expect(directions).toHaveAttribute(
+      'href',
+      'https://www.google.com/maps/search/?api=1&query=Stephansplatz%201%2C%20Vienna%2C%20Austria',
+    );
   });
 
   it('renders the certificates gallery and opens a lightbox on tap', async () => {
@@ -95,6 +103,7 @@ describe('PublicProfilePage', () => {
         { id: 'a1', image_url: 'https://cdn/awards/a1.png', description: 'Board Certification 2024', position: 1 },
         { id: 'a2', image_url: 'https://cdn/awards/a2.png', position: 2 },
       ],
+      locale: 'en',
     });
 
     renderAt('/@alice');
