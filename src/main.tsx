@@ -10,6 +10,7 @@ import { AccountPage } from './pages/AccountPage';
 import { MyProfilePage } from './pages/MyProfilePage';
 import { PublicProfilePage } from './pages/PublicProfilePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import './i18n';
 import './index.css';
 
 const queryClient = new QueryClient({

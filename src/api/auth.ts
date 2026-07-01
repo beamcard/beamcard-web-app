@@ -9,6 +9,8 @@ export interface SignupRequest {
   email: string;
   password: string;
   username: string;
+  /** UI language chosen at signup (en/de/uk). */
+  locale: string;
 }
 
 export interface LoginRequest {
@@ -26,6 +28,7 @@ export interface AuthResponse {
     email: string;
     username: string;
     plan: 'free' | 'premium';
+    locale: string;
   };
 }
 
@@ -35,6 +38,7 @@ export interface AccountResponse {
   email: string;
   username: string;
   plan: 'free' | 'premium';
+  locale: string;
   created_at: string;
 }
 

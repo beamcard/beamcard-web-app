@@ -8,20 +8,22 @@ import { z } from 'zod';
  *   - password: 12–128 chars
  *   - username: 3–20 chars (formal char rules land with BC-4)
  */
+// Validation messages are i18n keys; forms render them with t(message).
 export const signupSchema = z.object({
   email: z
     .string()
-    .min(1, 'Email is required')
-    .email('Enter a valid email')
+    .min(1, 'validation.emailRequired')
+    .email('validation.emailInvalid')
     .max(254),
   password: z
     .string()
-    .min(12, 'Password must be at least 12 characters')
-    .max(128, 'Password must be 128 characters or fewer'),
+    .min(12, 'validation.passwordMin')
+    .max(128, 'validation.passwordMax'),
   username: z
     .string()
-    .min(3, 'Username must be at least 3 characters')
-    .max(20, 'Username must be 20 characters or fewer'),
+    .min(3, 'validation.usernameMin')
+    .max(20, 'validation.usernameMax'),
+  locale: z.enum(['en', 'de', 'uk']),
 });
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
@@ -32,15 +34,15 @@ export type SignupFormValues = z.infer<typeof signupSchema>;
  * credentials (401), and enforcing length client-side would leak the policy.
  */
 export const loginSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Enter a valid email'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().min(1, 'validation.emailRequired').email('validation.emailInvalid'),
+  password: z.string().min(1, 'validation.passwordRequired'),
 });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 
 /** "Forgot password" — just a well-formed email; the answer is always generic. */
 export const forgotPasswordSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Enter a valid email').max(254),
+  email: z.string().min(1, 'validation.emailRequired').email('validation.emailInvalid').max(254),
 });
 
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
@@ -49,8 +51,8 @@ export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export const resetPasswordSchema = z.object({
   password: z
     .string()
-    .min(12, 'Password must be at least 12 characters')
-    .max(128, 'Password must be 128 characters or fewer'),
+    .min(12, 'validation.passwordMin')
+    .max(128, 'validation.passwordMax'),
 });
 
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;

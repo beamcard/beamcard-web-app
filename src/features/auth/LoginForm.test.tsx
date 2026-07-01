@@ -44,7 +44,7 @@ describe('LoginForm', () => {
       access_token: 'token.value',
       token_type: 'Bearer',
       expires_in: 900,
-      user: { id: 'uuid', email: 'alice@example.com', username: 'alice', plan: 'free' },
+      user: { id: 'uuid', email: 'alice@example.com', username: 'alice', plan: 'free', locale: 'en' },
     };
     loginMock.mockResolvedValue(fakeResponse);
 

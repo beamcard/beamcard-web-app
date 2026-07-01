@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { canNativeShare, downloadPng, downloadSvg, printQrPoster, shareUrl } from './shareUtils';
 
 interface Props {
@@ -14,6 +15,7 @@ interface Props {
  * print poster, and native share when the browser supports it.
  */
 export function ShareDialog({ username, url, qrSvg, isLoading, onClose }: Props) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
 
   // Close on Escape.
@@ -34,7 +36,7 @@ export function ShareDialog({ username, url, qrSvg, isLoading, onClose }: Props)
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Share your card"
+      aria-label={t('share.title')}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
@@ -43,21 +45,21 @@ export function ShareDialog({ username, url, qrSvg, isLoading, onClose }: Props)
         onClick={(e) => e.stopPropagation()}
       >
         <button
-          aria-label="Close"
+          aria-label={t('share.close')}
           onClick={onClose}
           className="absolute top-3 right-3 text-slate-400 hover:text-slate-700 text-xl leading-none"
         >
           ✕
         </button>
 
-        <h2 className="text-lg font-semibold text-slate-900 mb-1">Share your card</h2>
-        <p className="text-sm text-slate-500 mb-5">Scan in person, or print it for your desk.</p>
+        <h2 className="text-lg font-semibold text-slate-900 mb-1">{t('share.title')}</h2>
+        <p className="text-sm text-slate-500 mb-5">{t('share.subtitle')}</p>
 
         <div className="mx-auto mb-5 h-56 w-56 rounded-xl border border-slate-200 bg-white p-3 flex items-center justify-center">
           {qrSvg ? (
             <div className="h-full w-full [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: qrSvg }} />
           ) : (
-            <span className="text-sm text-slate-400">{isLoading ? 'Generating…' : 'QR unavailable'}</span>
+            <span className="text-sm text-slate-400">{isLoading ? t('share.generating') : t('share.unavailable')}</span>
           )}
         </div>
 
@@ -69,35 +71,35 @@ export function ShareDialog({ username, url, qrSvg, isLoading, onClose }: Props)
             onClick={copy}
             className="py-2 px-3 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
           >
-            {copied ? 'Copied!' : 'Copy link'}
+            {copied ? t('share.copied') : t('share.copy')}
           </button>
           <button
             onClick={() => printQrPoster(qrSvg ?? '', username, url)}
             disabled={!qrSvg}
             className="py-2 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
           >
-            Print
+            {t('share.print')}
           </button>
           <button
             onClick={() => downloadPng(qrSvg ?? '', `beamcard-${username}.png`)}
             disabled={!qrSvg}
             className="py-2 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
           >
-            Download PNG
+            {t('share.downloadPng')}
           </button>
           <button
             onClick={() => downloadSvg(qrSvg ?? '', `beamcard-${username}.svg`)}
             disabled={!qrSvg}
             className="py-2 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50 disabled:opacity-50"
           >
-            Download SVG
+            {t('share.downloadSvg')}
           </button>
           {canNativeShare() && (
             <button
               onClick={() => shareUrl(username, url)}
               className="col-span-2 py-2 px-3 text-sm border border-slate-300 rounded-md hover:bg-slate-50"
             >
-              Share…
+              {t('share.shareEllipsis')}
             </button>
           )}
         </div>

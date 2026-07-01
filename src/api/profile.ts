@@ -61,6 +61,8 @@ export interface ProfileResponse {
   updated_at: string;
   links: LinkResponse[];
   awards: AwardResponse[];
+  /** The creator's chosen UI language (en/de/uk) — the public card renders in it. */
+  locale: string;
 }
 
 /** PUT body — partial; an omitted field leaves the stored value unchanged. */

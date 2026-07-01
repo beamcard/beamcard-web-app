@@ -1,18 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Navigate, useParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { problemOf } from '../api/problem';
 import { publicVcardUrl, type Affiliation, type AwardResponse, type ProfileResponse } from '../api/profile';
 import { usePublicProfile } from '../features/profile/usePublicProfile';
+import { mapQuery } from '../features/profile/maps';
+import { WorkplaceMap } from '../features/profile/WorkplaceMap';
 
 /**
  * Public card at /@username (e.g. /@alice). Anonymous — no auth. The route
  * captures the whole `@handle` segment; non-`@` paths fall back to the app.
  */
 export function PublicProfilePage() {
+  const { t, i18n } = useTranslation();
   const { handle } = useParams();
   const username = handle?.startsWith('@') ? handle.slice(1) : undefined;
   const { data, isLoading, isError, error } = usePublicProfile(username);
+
+  // Render the card in the creator's chosen language (their single locale).
+  const cardLocale = data?.locale;
+  useEffect(() => {
+    if (cardLocale && i18n.language !== cardLocale) {
+      void i18n.changeLanguage(cardLocale);
+    }
+  }, [cardLocale, i18n]);
 
   // A bare segment without the `@` isn't a card — preserve the app catch-all.
   if (!username) {
@@ -20,7 +32,7 @@ export function PublicProfilePage() {
   }
 
   if (isLoading) {
-    return <Centered>Loading…</Centered>;
+    return <Centered>{t('publicCard.loading')}</Centered>;
   }
 
   if (isError || !data) {
@@ -29,11 +41,11 @@ export function PublicProfilePage() {
     return notFound ? (
       <Centered>
         <p className="text-lg font-semibold text-slate-900">@{username}</p>
-        <p className="mt-1 text-sm text-slate-500">This card doesn't exist (yet).</p>
+        <p className="mt-1 text-sm text-slate-500">{t('publicCard.notFound')}</p>
       </Centered>
     ) : (
       <Centered>
-        <p className="text-sm text-red-600">Couldn't load this card.</p>
+        <p className="text-sm text-red-600">{t('publicCard.loadError')}</p>
       </Centered>
     );
   }
@@ -42,6 +54,7 @@ export function PublicProfilePage() {
 }
 
 function Card({ profile }: { profile: ProfileResponse }) {
+  const { t } = useTranslation();
   const links = [...profile.links].sort((a, b) => a.position - b.position);
   const name = profile.display_name ?? `@${profile.username}`;
   const workplaces = profile.affiliations ?? [];
@@ -72,7 +85,7 @@ function Card({ profile }: { profile: ProfileResponse }) {
           href={publicVcardUrl(profile.username)}
           className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3 font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-[.99]"
         >
-          <span aria-hidden="true">＋</span> Save contact
+          <span aria-hidden="true">＋</span> {t('publicCard.saveContact')}
         </a>
 
         {links.length > 0 && (
@@ -96,13 +109,24 @@ function Card({ profile }: { profile: ProfileResponse }) {
 
         {workplaces.length > 0 && (
           <section className="mt-8 text-left">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Where to find me</h2>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+              {t('publicCard.whereToFind')}
+            </h2>
             <ul className="mt-3 space-y-3">
               {workplaces.map((a, i) => (
                 <li key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
                   {roleLine(a) && <p className="text-sm font-semibold text-slate-800">{roleLine(a)}</p>}
                   {a.address && <p className="mt-0.5 text-sm text-slate-600">{a.address}</p>}
                   {a.description && <p className="mt-0.5 text-xs italic text-slate-400">{a.description}</p>}
+                  {a.address && (
+                    <WorkplaceMap
+                      query={mapQuery({
+                        address: a.address,
+                        city: profile.location?.city,
+                        country: profile.location?.country,
+                      })}
+                    />
+                  )}
                 </li>
               ))}
             </ul>
@@ -110,7 +134,7 @@ function Card({ profile }: { profile: ProfileResponse }) {
         )}
       </div>
 
-      <p className="mt-6 text-center text-xs text-slate-400">Made with Beamcard</p>
+      <p className="mt-6 text-center text-xs text-slate-400">{t('publicCard.madeWith')}</p>
     </Page>
   );
 }
@@ -121,6 +145,7 @@ function Card({ profile }: { profile: ProfileResponse }) {
  * opens a full-screen viewer with prev/next navigation (arrows, keyboard, swipe-free).
  */
 function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
+  const { t } = useTranslation();
   const [index, setIndex] = useState<number | null>(null);
   const open = index !== null;
   const count = awards.length;
@@ -150,7 +175,7 @@ function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
 
   return (
     <section className="mt-8 text-left">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Certificates &amp; awards</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t('awards.heading')}</h2>
       <ul className="mt-3 grid grid-cols-2 gap-3">
         {awards.map((award, i) => (
           <li key={award.id}>
@@ -163,7 +188,7 @@ function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
               <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg">
                 <img
                   src={award.image_url}
-                  alt={award.description || `${name} — certificate`}
+                  alt={award.description || t('awards.imageAlt', { name })}
                   loading="lazy"
                   className="max-h-full max-w-full object-contain transition-transform duration-300 ease-out group-hover:scale-105"
                 />
@@ -178,13 +203,13 @@ function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Certificate viewer"
+          aria-label={t('awards.viewerLabel')}
           onClick={close}
           className="bc-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 sm:p-8"
         >
           <button
             type="button"
-            aria-label="Close"
+            aria-label={t('awards.close')}
             onClick={close}
             className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-2xl text-white transition hover:scale-110 hover:bg-white/20 active:scale-90 sm:right-5 sm:top-5"
           >
@@ -195,7 +220,7 @@ function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
             <>
               <button
                 type="button"
-                aria-label="Previous certificate"
+                aria-label={t('awards.previous')}
                 onClick={(e) => {
                   e.stopPropagation();
                   go(-1);
@@ -206,7 +231,7 @@ function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
               </button>
               <button
                 type="button"
-                aria-label="Next certificate"
+                aria-label={t('awards.next')}
                 onClick={(e) => {
                   e.stopPropagation();
                   go(1);
@@ -225,7 +250,7 @@ function Awards({ awards, name }: { awards: AwardResponse[]; name: string }) {
             <img
               key={index}
               src={current.image_url}
-              alt={current.description || `${name} — certificate`}
+              alt={current.description || t('awards.imageAlt', { name })}
               className="bc-zoom-in max-h-[80vh] w-auto max-w-full rounded-lg object-contain shadow-2xl"
             />
             <figcaption className="text-center">
